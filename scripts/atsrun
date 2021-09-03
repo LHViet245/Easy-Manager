@@ -1,0 +1,314 @@
+#!/usr/bin/env bash
+Version="2.0.0"
+
+# Get shared function
+source "SharedFunc"
+
+# Get color
+color
+
+
+script_name="$(basename "$0")"
+source_path="$source_script/atsrun"
+autosubcomp="$source_path/AutosubCOMP.txt"
+autosubfail="$source_path/AutosubFAIL.txt"
+autosubdone="$source_path/AutosubDONE.txt"
+dir_config="$source_path/config"
+[[ ! -d "$source_path" ]] && mkdir -p  "$source_path"
+[[ ! -d "$dir_config" ]] && mkdir -p "$dir_config"
+
+atsrun=$(which autosub 2>/dev/null) || ERROR "Autosub is not installed. Please make sure it's already installed." "$script_name"
+
+# Language support
+function speech_language() {
+    declare -A splang_english=(
+        ["Australia"]="en-au"
+        ["Canada"]="en-ca"
+        ["United Kingdom"]="en-gb"
+        ["Ghana"]="en-gh"
+        ["Ireland"]="en-ie"
+        ["India"]="en-in"
+        ["Kenya"]="en-ke"
+        ["Nigeria"]="en-ng"
+        ["New Zealand"]="en-nz"
+        ["United States"]="en-us"
+    )
+    declare -A splang_asia=(
+        ["Japan"]="ja-jp"
+        ["Korean"]="ko-kr"
+        ["Vietnamese"]="vi-vn"
+    )
+    declare -A splang_chinese=(
+        ["China"]="cmn-hans-cn"
+        ["Hong Kong"]="cmn-hans-hk"
+        ["Taiwan"]="cmn-hant-tw"
+    )
+
+}
+
+# Function Basename
+function filebasename() {
+	filename="$(basename "$1")"
+	filepath="$(dirname "$1")"
+	name="${filename%.*}"
+}
+
+
+# function config
+function process_config() {
+    case $1 in
+        create_config ) # create new config file
+                        
+    
+
+}
+
+# Run autosub with Audio Processing
+function autosub-with-ap () {
+	echo -e "\n${LIGHTBLUE}Starting Autosub${NC} ${YELLOW}[$filename]${NC}"
+	echo -e "${LIGHTBLUE}Autosub With Audio Processing (-ap)${NC}\n"
+	"$atsrun" \
+	--input "$1"  \
+	--speech-language $S \
+	--min-region-size $mnrs \
+	--max-region-size $mxrs \
+	--energy-threshold $et \
+	--max-continuous-silence $mxcs \
+	--not-strict-min-length \
+	--drop-empty-regions \
+    --format $F \
+	--yes \
+	--audio-process y
+}
+
+# Run autosub without Audio Processing
+function autosub-without-ap () {
+	echo -e "\n${LIGHTBLUE}Starting Autosub${NC} ${YELLOW}[$filename]${NC}"
+	echo -e "${LIGHTBLUE}Autosub Without Audio Processing (-ap)${NC}\n"
+	"$atsrun" \
+	--input "$1"  \
+	--speech-language $S \
+	--min-region-size $mnrs \
+	--max-region-size $mxrs \
+	--energy-threshold $et \
+	--max-continuous-silence $mxcs \
+	--not-strict-min-length \
+	--drop-empty-regions \
+    --format $F \
+	--yes
+}
+
+# Function Translate Subtitle
+# Rename Subtitle to .srt only and Remove file Subtitle Origin
+function Translate() {
+echo -e "\n${LIGHTCYAN}==================================${NC}"
+echo -e "         ${LIGHTCYAN}CONFIG TRANSLATE        |${NC}"
+echo -e "${LIGHTCYAN}SRC Language: 	       ${YELLOW}$S${NC}     |${NC}"
+echo -e "${LIGHTCYAN}Destination Language:  ${YELLOW}$d${NC}        |${NC}"
+echo -e "${LIGHTCYAN}==================================${NC}\n"
+echo -e "${LIGHTBLUE}Starting Translate${NC} ${YELLOW}[$filename]${NC}\n"
+	$atsrun \
+	--input "$1" \
+	--src-language $src \
+	--dst-language $d \
+	--format $F \
+	--yes
+	sleep 0.5
+	if ! mv "$filepath/$name.$S.$d.$f" "$filepath/$name.$f" 2>/dev/null ;then
+	    ERROR "FAIL rename subtitle name" "$script_name"
+	else
+	    rm "$filepath/$name.$S.$f" 2>/dev/null
+	fi
+}
+
+# Function Cleanup
+function clean_temp {
+	find /tmp -maxdepth 0 -type f -name "*.flac" -delete 2>/dev/null && show_messenger "Clean .flac temp completed" "$script_name" || WARNING "Having problems cleaning temp .flac" "$script_name"
+	find /tmp -maxdepth 0 -type f -name "*.wav" -delete 2>/dev/null && show_messenger "Clean .wav temp completed" "$script_name" || WARNING "Having problems cleaning temp .wav" "$script_name"
+    find /tmp -maxdepth 0 -type f -name "*.mov" -delete 2>/dev/null && show_messenger "Clean .mov temp completed" "$script_name" || WARNING "Having problems cleaning temp .mov" "$script_name"
+	return 0
+}
+
+function CheckVideoDone() {
+	if [[ $(grep -wFc "$filename" "$cptodriveCOMP") -eq 0 ]] ;then
+		return 0
+	else
+		return 1
+	fi
+}
+
+# Function create list need to handle
+function CreateListFile() {
+	local video
+	while IFS= read -r video ;do
+		if [[ -f $video ]] && CheckVideoDone ;then
+			list_video+=("$video")
+		elif [[ -f $video ]] && ! CheckVideoDone ;then
+			echo "$(basename "$video")" >> "$cptodriveDONE"
+		fi
+	done < <(find "$1" -maxdepth 1 -type f \( -iname \*.mp4 -o -iname \*.mkv -o -iname \*.avi -o -iname \*.ts -o -iname \*.flv -o -iname \*.m4v -o -iname \*.mov -o -iname \*.wmv\) 2>/dev/null)
+	[[ $? -ne 0 ]] && ERROR "Create List Video need to handle is FAIL" "$script_name"
+}
+
+function control_autosub() {
+    declare -A list_video=()
+    if [[ $# -le 1 ]] && [[ -d "$1" ]] || [[ -z "$1" ]] ;then
+		if [[ -d "$1" ]] ;then
+			CreateListFile "$(readlink -f "$1")"
+		else
+			CreateListFile "$PWD"
+		fi
+    else
+		local file
+		for file in "$@" ;do
+			if [[ -d "$video" ]];then
+				CreateListFile "$(readlink -f "$file")"
+			else
+				if CheckVideoDone ;then
+					list_video+=("$(readlink -f $file)")
+				else
+					echo "$(basename "$file")" >> "$cptodriveDONE"
+				fi
+			fi
+		done
+    fi
+	for file in "${list_video[@]}" ;do
+		filebasename "$file"
+		if [[ $noap == "yes" ]] ;then
+			autosub-without-ap "$file"
+		else
+			autosub-with-ap "$file" || autosub-without-ap "$file"
+		fi
+		[[ $? -ne 0 ]] && WARNING "[$filename] autosub processing FAIL !" "$script_name" && echo "$filename" >> "$autosubfail"
+		if [ -f "$filepath/$name.$S.$f" ] ;then
+				Translate "$filepath/$name.$S.$f"
+		else
+				WARNING "File subtitle "$name.$S.$f" not Exist !" "$script_name"
+				false
+		fi
+		if [[ $? -ne 0 ]] && [[ ! -f "$filepath/$name.$f" ]] ;then
+			WARNING "Translate Subtitle [$name.$S.$f] Processing Fail" "$script_name" && echo "$filename" >> "$autosubfail"
+		else
+			echo "$filename" >> "$autosubcomp" 
+		fi
+	done
+}
+
+
+function menu_autosub() {
+
+echo -e "{BWhite}    Main Menu: What would you like to do?${NC}"
+echo -e "{BWhite}${NC}"
+echo -e "{BWhite}Press the number of your choice:${NC}"
+echo -e "{BWhite}${NC}"
+echo -e "{BWhite}	1 - Autosub Japanese${NC}"
+echo -e "{BWhite}	2 - Autosub Chinese (Simplified, China)${NC}"
+echo -e "{BWhite}	3 - Autosub English US${NC}"
+echo -e "{BWhite}	4 - Translate Subtitle (Japanese Default)${NC}"
+echo -e "{BWhite}	5 - Custom Autosub${NC}"
+echo -e "{BWhite}${NC}"
+echo -e "{BWhite}	0 - Exit${NC}"
+
+read -r -n 1 -s choice;
+
+	case $choice in
+
+		1 )  # Autosub Japanese
+			control-autosub "$@"
+		;;
+
+		2 )	# Autosub Chinese (Simplified, China)
+			S="cmn-hans-cn"
+			src="zh-cn"
+			control-autosub "$@"
+		;;
+
+		3 )	# Autosub English
+			S="en-us"
+			src="en"
+			control-autosub "$@"
+		;;
+
+		4 )	# Translate (Japanese)
+			echo -e "Config Language ?"
+			if ! ask_user ;then
+				for file in "$@" ;do
+					# Info for Base Name
+					filebasename "$file"
+					# Translate Subtitle
+					echo -e "${LIGHTBLUE}Translating ${YELLOW}[$filename]${NC} $S to $d ${NC}"
+					if ! Translate ;then
+						echo -e "${YELLOW}[$filename]${NC} ${RED}is FAIL${NC}"
+						echo -e "${RED}Please Translate Again${NC}"
+					else
+						echo -e "\n${GREEN}Translate [$filename] is DONE${NC}"
+					fi
+				done
+			else
+				# Option for Custom Translate
+				read -p -r 'Enter Video Language /src : ' src1
+				# Display list SRC Support
+				if [ -n "$(autosub -lsc | grep -i "$src1")" ] 2>/dev/null ;then
+					autosub -lsc | grep -i "$src1"
+					read -p -r 'Enter the "SRC Language" parameter as above /Ex: en-us : ' src
+				else
+					echo -e "${RED}Language does not exist or does not support !${NC}"
+				fi
+				echo
+				read -p -r 'Enter Destination Language /d : ' d1
+				# Display list D Support
+				if [ -n "$(autosub -ltc | grep -i "$d1")" ] 2>/dev/null ;then
+					autosub -ltc | grep -i "$d1"
+					read -p -r 'Enter the "DST Language" parameter as above /Ex: en : ' d
+				else
+					echo -e "${RED}Language does not exist or does not support !${NC}"
+				fi
+
+				for file in "$@" ;do
+					# Info for Base Name
+					filebasename "$file"
+					# Translate Subtitle
+					echo -e "${LIGHTBLUE}Translating ${YELLOW}[$filename]${NC} $S to $d ${NC}"
+					if ! Translate ;then
+						echo -e "${YELLOW}[$filename]${NC} ${RED}is FAIL${NC}"
+						echo -e "${RED}Please Translate Again${NC}"
+					else
+						echo -e "\n${GREEN}Translate [$filename] is DONE${NC}"
+					fi
+				done
+			fi
+			clear
+		;;
+
+		5 ) # Custom
+			while true
+				do
+					constan
+					custom-autosub
+					config
+					echo -e "${LIGHTCYAN}Check and start autosub ! (y/n)${NC}"
+					! ask_user || continue 0
+			done
+			control-autosub "$@"
+		;;
+
+		0 )	# Break Menu
+			echo -e "\n${LIGHTCYAN}DONE ALL${NC}"
+			echo -e "${LIGHTCYAN}THANK YOU FOR USING${NC}"
+			clear
+			exit 0
+		;;
+
+		* )	# Not Valid Choice
+			clear
+			echo -e "\n${RED}Not a valid choice${NC}"
+			echo -e "${RED}Please choice some number${NC}\n"
+			menuAutosub "$@"
+		;;
+
+	esac
+
+} 
+
+
+

@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+
+source_script="$HOME/.auto-manager-server"
+[[ ! -d "$source_script" ]] && mkdir -p  "$source_script"
+
+# color text
+function color() {
+
+# Reset
+    NC='\e[0m'              # Text Reset No Color
+# Regular Colors
+    Black='\e[0;30m'        # Black
+    Red='\e[0;31m'          # Red
+    Green='\e[0;32m'        # Green
+    Yellow='\e[0;33m'       # Yellow
+    Blue='\e[0;34m'         # Blue
+    Purple='\e[0;35m'       # Purple
+    Cyan='\e[0;36m'         # Cyan
+    White='\e[0;97m'        # White
+    Orange=$'\e[0;33m'      # Orange
+    Lightcyan='\e[1;96m'    # Light cyan
+    Lightblue='\e[1;94m'    # Light blue
+    Lightgreen='\e[0;92m'   # Light green
+    Lightgray='\e[1;37m'    # Light gray
+    Lightyellow='\e[1;93m'  # Light yellow
+# Bold
+    BBlack='\e[1;30m'       # Black
+    BRed='\e[1;31m'         # Red
+    BGreen='\e[1;32m'       # Green
+    BYellow='\e[1;33m'      # Yellow
+    BBlue='\e[1;34m'        # Blue
+    BPurple='\e[1;35m'      # Purple
+    BCyan='\e[1;36m'        # Cyan
+    BWhite='\e[1;97m'       # White
+}
+
+# Setup log file
+function setup_log() {
+    local log
+    [[ ! -d "$source_script/log" ]] && mkdir -p "$source_script/log"
+    case $2 in
+        setup     ) log="setuplog.log" ;;
+        atsrun    ) log="autosub.log" ;;
+        cptodrive ) log="cptodrive.log" ;;
+        *         ) return 0
+    esac
+        echo -e "$(date) : $1" >> "$source_script/log/$log"
+}
+
+function show_messenger() {
+    echo -e "${Purple}$1${NC}"
+    setup_log "$1" "$2"
+    return 0
+}
+
+function ERROR() {
+    echo -e "${Red}$1${NC}"
+    setup_log "$1" "$2"
+    exit 1
+}
+
+function WARNING() {
+    echo -e "${Orange}$1${NC}"
+    setup_log "$1" "$2"
+    return 0
+}
+
+
+# Function ask user
+function ask_user() {
+local answer
+while true
+  do
+    read -r -n 1 answer
+    case $answer in [Yy]* ) echo "" && return 0 ;;
+                    [Nn]* ) echo "" && return 1 ;;
+                        * ) echo -e "\nEnter y or n";;
+    esac
+  done
+}
+
+# Fucntion check installed package
+function not_installed() {
+    if [[ "$(dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -wc "ok installed")" -eq 0 ]]; then
+	    return 1
+    else
+    	return 0
+    fi
+}
+
+# Fucntion pip3.9 install
+# $env if exist python3.9 env, $user if install for local user
+function pip_install() {
+	if [[ $env == "yes" ]] || [[ $user == "no" ]];then
+		python3.9 -m pip install $* || echo "Install $* FAIL" && exit 1
+	else
+		python3.9 -m pip install --user $* || echo "Install $* FAIL" && exit 1
+	fi
+}
+
+
+# Fucntion compare version
+function vercomp() {
+	local ver1
+	local ver2
+    if [[ $1 == $2 ]]
+    then
+        return 0
+    fi
+    local IFS=.
+    local i ver1=($1) ver2=($2)
+    # fill empty fields in ver1 with zeros
+    for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
+    do
+        ver1[i]=0
+    done
+    for ((i=0; i<${#ver1[@]}; i++))
+    do
+        if [[ -z ${ver2[i]} ]]
+        then
+            # fill empty fields in ver2 with zeros
+            ver2[i]=0
+        fi
+        if ((10#${ver1[i]} > 10#${ver2[i]}))
+        then
+            return 1
+        fi
+        if ((10#${ver1[i]} < 10#${ver2[i]}))
+        then
+            return 2
+        fi
+    done
+    return 0
+}
+
+function testvercomp() {
+	local op
+    vercomp $1 $2
+    case $? in
+        0) op='=';;
+        1) op='>';;
+        2) op='<';;
+    esac
+    if [[ $op != $3 ]]
+    then
+        #echo "FAIL: Expected '$3', Actual '$op', Arg1 '$1', Arg2 '$2'"
+		return 1
+    else
+        #echo "Pass: '$1 $op $2'"
+		return 0
+    fi
+}
