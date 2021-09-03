@@ -2,7 +2,7 @@
 Version="2.0.0"
 
 # Get shared function
-source "SharedFunc"
+source "SharedFunc" || echo "Get share function fail" && exit 1
 
 # Get color
 color
