@@ -150,3 +150,15 @@ function testvercomp() {
 		return 0
     fi
 }
+
+# Function get list menu
+function Create_SubMenu() {
+    local file
+    declare -A ListSubMenu=()
+    while IFS= read -r file ;do
+		if [[ -f "$file" ]] ;then
+			ListSubMenu+=("$(basename "$file")")
+		fi
+		((num_file++))
+	done< <(find "$1" -type f -iname "*.$2") 2>/dev/null
+}

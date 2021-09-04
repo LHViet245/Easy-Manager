@@ -14,36 +14,26 @@ autosubcomp="$source_path/AutosubCOMP.txt"
 autosubfail="$source_path/AutosubFAIL.txt"
 autosubdone="$source_path/AutosubDONE.txt"
 dir_config="$source_path/config"
-[[ ! -d "$source_path" ]] && mkdir -p  "$source_path"
-[[ ! -d "$dir_config" ]] && mkdir -p "$dir_config"
+[[ ! -d "$source_path" ]] && mkdir -p  "$source_path" && show_messenger "Created source script $source_path" "$srcipt_name"
+[[ ! -d "$dir_config" ]] && mkdir -p "$dir_config" && show_messenger "Created path config $dir_config" "$srcipt_name"
 
 atsrun=$(which autosub 2>/dev/null) || ERROR "Autosub is not installed. Please make sure it's already installed." "$script_name"
 
 # Language support
-function speech_language() {
-    declare -A splang_english=(
-        ["Australia"]="en-au"
-        ["Canada"]="en-ca"
-        ["United Kingdom"]="en-gb"
-        ["Ghana"]="en-gh"
-        ["Ireland"]="en-ie"
-        ["India"]="en-in"
-        ["Kenya"]="en-ke"
-        ["Nigeria"]="en-ng"
-        ["New Zealand"]="en-nz"
-        ["United States"]="en-us"
-    )
-    declare -A splang_asia=(
-        ["Japan"]="ja-jp"
-        ["Korean"]="ko-kr"
-        ["Vietnamese"]="vi-vn"
-    )
-    declare -A splang_chinese=(
-        ["China"]="cmn-hans-cn"
-        ["Hong Kong"]="cmn-hans-hk"
-        ["Taiwan"]="cmn-hant-tw"
-    )
-
+function GetLangcode() {
+	local line
+	declare -A speech_LG=()
+	declare -A SRC_LG=()
+	while read -r line ;do
+		speech_LG+=("$(echo "$line" | awk -F '  ' '{print $NF}' | sed 's/^ //g')")
+		speech_LG+=("$(echo "$line" | awk -F '  ' '{print $1}' | sed 's/^ //g')")
+	done < "$source_path/Speech_LG.txt"
+	[[ $? -ne 0 ]] && ERROR "Get Speech Language FAIL! File not exist" "$script_name"
+	while read -r line ;do
+		SRC_LG+=("$(echo "$line" | awk -F '  ' '{print $NF}' | sed 's/^ //g')")
+		SRC_LG+=("$(echo "$line" | awk -F '  ' '{print $1}' | sed 's/^ //g')")
+	done < "$source_path/SRC_LG.txt"
+	[[ $? -ne 0 ]] && ERROR "Get SRC Language FAIL! File not exist" "$script_name"
 }
 
 # Function Basename
@@ -58,15 +48,24 @@ function filebasename() {
 function process_config() {
     case $1 in
         create_config ) # create new config file
+			echo -e ""
+			ConfigName=
+			echo 
+		
                         
-    
 
+}
+
+function ShowProcess() {
+	echo -ne "${Purple}[P]${NC} ${Lightgray}$num_process/$total_process${NC}"
+	[[ -n $num_check_COMP ]] && echo -ne " | ${Green}[C]${NC} ${Lightgray}$num_check_COMP/$total_process${NC}"
+	[[ -n $num_check_FAIL ]] && echo -ne " | ${Red}[F]${NC} ${Lightgray}$num_check_FAIL/$total_process${NC}"
 }
 
 # Run autosub with Audio Processing
 function autosub-with-ap () {
-	echo -e "\n${LIGHTBLUE}Starting Autosub${NC} ${YELLOW}[$filename]${NC}"
-	echo -e "${LIGHTBLUE}Autosub With Audio Processing (-ap)${NC}\n"
+	show_messenger "[$filename] Autosub With Audio Processing (-ap)" "$script_name"
+	ShowProcess && echo ""
 	"$atsrun" \
 	--input "$1"  \
 	--speech-language $S \
@@ -83,8 +82,8 @@ function autosub-with-ap () {
 
 # Run autosub without Audio Processing
 function autosub-without-ap () {
-	echo -e "\n${LIGHTBLUE}Starting Autosub${NC} ${YELLOW}[$filename]${NC}"
-	echo -e "${LIGHTBLUE}Autosub Without Audio Processing (-ap)${NC}\n"
+	show_messenger "[$filename] Autosub Without Audio Processing (no -ap)\n" "$script_name"
+	ShowProcess && echo ""
 	"$atsrun" \
 	--input "$1"  \
 	--speech-language $S \
@@ -141,10 +140,11 @@ function CheckVideoDone() {
 function CreateListFile() {
 	local video
 	while IFS= read -r video ;do
-		if [[ -f $video ]] && CheckVideoDone ;then
+		if [[ -f $video ]] && CheckVideoDone || [[ -f $video ]] && [[ "$skipFile" == "yes" ]] ;then
 			list_video+=("$video")
 		elif [[ -f $video ]] && ! CheckVideoDone ;then
 			echo "$(basename "$video")" >> "$cptodriveDONE"
+			num_check_DONE+=1
 		fi
 	done < <(find "$1" -maxdepth 1 -type f \( -iname \*.mp4 -o -iname \*.mkv -o -iname \*.avi -o -iname \*.ts -o -iname \*.flv -o -iname \*.m4v -o -iname \*.mov -o -iname \*.wmv\) 2>/dev/null)
 	[[ $? -ne 0 ]] && ERROR "Create List Video need to handle is FAIL" "$script_name"
@@ -152,6 +152,13 @@ function CreateListFile() {
 
 function control_autosub() {
     declare -A list_video=()
+	local skipAP
+	first="yes"
+	echo -e "Skip Audio Process? No -ap (y/n)"
+	ask_user && skipAP="yes" && show_messenger "No Audio Process." "$script_name"
+	echo -e "Ignore previously processed video? (y/n)"
+	ask_user && skipFile="yes" && show_messenger "Ignore processed video." "$script_name"
+
     if [[ $# -le 1 ]] && [[ -d "$1" ]] || [[ -z "$1" ]] ;then
 		if [[ -d "$1" ]] ;then
 			CreateListFile "$(readlink -f "$1")"
@@ -164,36 +171,95 @@ function control_autosub() {
 			if [[ -d "$video" ]];then
 				CreateListFile "$(readlink -f "$file")"
 			else
-				if CheckVideoDone ;then
-					list_video+=("$(readlink -f $file)")
+				if CheckVideoDone || [[ "$skipFile" == "yes" ]] ;then
+					list_video+=("$(readlink -f "$file")")
 				else
 					echo "$(basename "$file")" >> "$cptodriveDONE"
+					num_check_DONE+=1
 				fi
 			fi
 		done
     fi
+	total_process=$((${#list_video[*]}-$num_check_DONE))
+	echo -ne "\n${Green}TOTAL:${NC} ${Lightgray}$total_process${NC} ${Purple}Video${NC}"
+	[[ -n $num_check_DONE ]] && echo -e " | ${Lightgray}$num_check_DONE${NC} ${Lightyellow}Video is DONE${NC}\n" || echo ""
 	for file in "${list_video[@]}" ;do
+		num_process+=1
 		filebasename "$file"
-		if [[ $noap == "yes" ]] ;then
+		if [[ "$skipAP" == "yes" ]] ;then
 			autosub-without-ap "$file"
 		else
 			autosub-with-ap "$file" || autosub-without-ap "$file"
 		fi
-		[[ $? -ne 0 ]] && WARNING "[$filename] autosub processing FAIL !" "$script_name" && echo "$filename" >> "$autosubfail"
+		[[ $? -ne 0 ]] && ERROR "[$filename] autosub processing FAIL !" "$script_name"
 		if [ -f "$filepath/$name.$S.$f" ] ;then
 				Translate "$filepath/$name.$S.$f"
 		else
-				WARNING "File subtitle "$name.$S.$f" not Exist !" "$script_name"
+				WARNING "[$filename] File subtitle "$name.$S.$f" not Exist !" "$script_name"
 				false
 		fi
 		if [[ $? -ne 0 ]] && [[ ! -f "$filepath/$name.$f" ]] ;then
-			WARNING "Translate Subtitle [$name.$S.$f] Processing Fail" "$script_name" && echo "$filename" >> "$autosubfail"
+			WARNING "[$filename] Translate Subtitle [$name.$S.$f] Processing Fail" "$script_name"
+			echo "$filename" >> "$autosubfail"
+			num_check_FAIL+=1
 		else
-			echo "$filename" >> "$autosubcomp" 
+			[[ "$first" == "yes" ]] && echo "---------------------------" >> "$autosubcomp" && first="no"
+			echo "$filename" >> "$autosubcomp"
+			num_check_COMP+=1
 		fi
+
+		clean_temp
+
 	done
+
+	CheckFile
+
 }
 
+function CheckFile() {
+	local list
+	## List File Completed
+	if [[ -f "$autosubcomp" ]] && [[ $num_check_COMP -gt 0 ]] ;then
+	echo -e "\n${BGreen}[COMPLETED]${NC}"
+	while IFS= read -r list ;do
+		if [[ "$list" == "---------------------------" ]] ;then
+			if [[ "$first" == "no" ]] ;then
+				echo -n "$list" ;echo -e "  ${Purple}Total $num_check_COMP Video${NC} | ${Orange}$(date '+%d-%m-%Y')${NC} | ${Lightgray}$(date '+%H:%M')${NC}"
+				first="stop" # Stop here
+			fi
+		else
+			echo -e "${Green}"$list"${NC}"
+		fi
+	done < <(tail -n $((num_check_COMP + 2)) "$autosubcomp") 2>/dev/null
+	fi
+	## List File Done
+	if [[ -f "$autosubdone" ]] ;then
+	echo -e "\n${Yellow}[Done]${NC}"
+	if [[ $num_check_DONE -gt 8 ]] ;then
+		echo -e "${Purple}MORE....${NC}${Lightgray}$((num_check_DONE-8)){NC}"
+		while IFS= read -r list ;do
+				echo -e "${Lightyellow}$list${NC}"
+		done < <(tail -n 8 "$autosubdone") 2>/dev/null
+	else
+		while IFS= read -r list ;do
+				echo -e "${Lightyellow}$list${NC}"
+		done < <(cat "$autosubdone") 2>/dev/null
+	fi
+	rm "$autosubdone" 2>/dev/null
+	fi
+	## List File Fail
+	if [[ -f "$autosubfail" ]];then
+	echo -e "\n${BRed}[FAIL]${NC}"
+	while IFS= read -r list ;do
+			echo -e "${Red}$list${NC}"
+	done < <(cat "$autosubfail") 2>/dev/null
+	rm "$autosubfail" 2>/dev/null
+	fi
+
+	echo ""
+	ShowProcess
+	echo ""
+}
 
 function menu_autosub() {
 
