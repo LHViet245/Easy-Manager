@@ -300,7 +300,7 @@ function Custom_Config() {
 		echo -e "${Lightgray}Translate is only available for formats${NC} ${Cyan}'srt | ass'${NC}${Lightgray}. Other formats will not translate by default${NC}"
 		echo -e "${Lightgray}Chose Subtitles Format: ${NC}"
 		select F in "${list_format[@]}" ;do
-			echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$F${NC}\n" && break
+			echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$F${NC}\n" &ush& break
 		done
 		
 }
