@@ -32,7 +32,7 @@ function get_index() {
 	local -n Array="$2"
 	[[ $# -gt 2 ]] && ERROR "Get Index error caused by improper function usage!" "$script_name"
 	[[ ${#Array[@]} -lt 1 ]] && WARNING "Array empty or not exist!" "$script_name" && WARNING "Array empty or not exist!"
-	for ((i = 0; i <= ${#speech_LG[*]}; i++)); do
+	for ((i = 0; i <= ${#Array[*]}; i++)); do
 		if [[ "${Array[i]}" == *"$1"* ]]; then
 			[[ "$first" == "yes" ]] && echo "$i" && first="stop"
 			((count_index++))
@@ -300,7 +300,7 @@ function Custom_Config() {
 		echo -e "${Lightgray}Translate is only available for formats${NC} ${Cyan}'srt | ass'${NC}${Lightgray}. Other formats will not translate by default${NC}"
 		echo -e "${Lightgray}Chose Subtitles Format: ${NC}"
 		select F in "${list_format[@]}" ;do
-			echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$F${NC}\n" &ush& break
+			echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$F${NC}\n" && break
 		done
 		
 }
