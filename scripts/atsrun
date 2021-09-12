@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-Version="2.0.0"
+Version="2.0.2"
 
 # Get shared function
-source "SharedFunc" || echo "Get share function fail" && exit 1
+! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
 
 # Get color
 color
-
 
 script_name="$(basename "$0")"
 source_path="$source_script/atsrun"
@@ -17,25 +16,6 @@ dir_config="$source_path/config"
 [[ ! -d "$source_path" ]] && mkdir -p  "$source_path" && show_messenger "Created source script $source_path" "$srcipt_name"
 [[ ! -d "$dir_config" ]] && mkdir -p "$dir_config" && show_messenger "Created path config $dir_config" "$srcipt_name"
 
-atsrun=$(which autosub 2>/dev/null) || ERROR "Autosub is not installed. Please make sure it's already installed." "$script_name"
-
-# Language support
-function GetLangcode() {
-	local line
-	declare -A speech_LG=()
-	declare -A SRC_LG=()
-	while read -r line ;do
-		speech_LG+=("$(echo "$line" | awk -F '  ' '{print $NF}' | sed 's/^ //g')")
-		speech_LG+=("$(echo "$line" | awk -F '  ' '{print $1}' | sed 's/^ //g')")
-	done < "$source_path/Speech_LG.txt"
-	[[ $? -ne 0 ]] && ERROR "Get Speech Language FAIL! File not exist" "$script_name"
-	while read -r line ;do
-		SRC_LG+=("$(echo "$line" | awk -F '  ' '{print $NF}' | sed 's/^ //g')")
-		SRC_LG+=("$(echo "$line" | awk -F '  ' '{print $1}' | sed 's/^ //g')")
-	done < "$source_path/SRC_LG.txt"
-	[[ $? -ne 0 ]] && ERROR "Get SRC Language FAIL! File not exist" "$script_name"
-}
-
 # Function Basename
 function filebasename() {
 	filename="$(basename "$1")"
@@ -43,19 +23,464 @@ function filebasename() {
 	name="${filename%.*}"
 }
 
+# Function get fisrt index and count value in array
+# $1: item, $2: name array
+function get_index() {
+	local first="yes"
+	local count=0
+	local i
+	local -n Array="$2"
+	[[ $# -gt 2 ]] && ERROR "Get Index error caused by improper function usage!" "$script_name"
+	[[ ${#Array[@]} -lt 1 ]] && WARNING "Array empty or not exist!" "$script_name" && WARNING "Array empty or not exist!"
+	for ((i = 0; i <= ${#speech_LG[*]}; i++)); do
+		if [[ "${Array[i]}" == *"$1"* ]]; then
+			[[ "$first" == "yes" ]] && echo "$i" && first="stop"
+			((count_index++))
+		fi
+	done
+
+	return "$count_index"
+}
+
+# Language support
+# $1: option $2: get langcode by input language
+# for option llist, no need $2
+# return S_code | S_name | SRC
+function GetLangcode() {
+	case $1 in
+
+		lcode  ) 	
+					[[ ${#speech_LG[*]} -lt 240 ]] && WARNING "Langcode does not cover all 120 languages" "$script_name"
+					[[ ${#speech_LG[*]} -le 20 ]] && ERROR "Langcode under 10 languages" "$script_name"
+
+					local count
+					local index
+					local language
+					if [[ "$2" == "All_Language" ]] ;then
+						count=${#speech_LG[*]}
+						index=0
+					else
+						# Upper fisrt charater for each word
+						language="$(echo "$2" | sed -e "s/\b\(.\)/\u\1/g")"
+						if [[ "${speech_LG[*]}" =~ $language ]]; then
+							index=$(get_index "$language" "speech_LG")
+							count=$?
+							[[ $count -gt 20 ]] && count=20
+							[[ $count -eq 0 ]] && count=2
+							count=$((count * 2 + index))
+						fi
+					fi
+
+					if [[ $count -gt 1 ]] ;then
+						local num=1
+						local answer
+						local code_index
+						local name_index
+						echo -e "\n${Green}Found ${NC}${Blue}$(((count-index)/2))${NC} ${Green}matching languages.${NC}\n"
+						for ((i=index; i < count; i+=2)); do
+							if [[ $num -lt 10 ]] ;then
+								echo -e "\t  ${Lightgray}$num${NC}. ${Blue}${speech_LG[i]}${NC}"
+							elif [[ $num -ge 10 ]] && [[ $num -lt 100 ]] ;then
+								echo -e "\t ${Lightgray}$num${NC}. ${Blue}${speech_LG[i]}${NC}"
+							else
+								echo -e "\t${Lightgray}$num${NC}. ${Blue}${speech_LG[i]}${NC}"
+							fi
+							((num++))
+							code_index+=("$((i+1))")
+							name_index+=("$i")
+						done
+
+						while true ;do
+							echo -e "\n${Lightgray}Enter number to select: ${NC}"
+							read -r answer
+							if [[ $answer -lt $num ]] && [[ $answer =~ ^[0-9]+$ ]];then
+								S_code="${speech_LG[${code_index[$((answer-1))]}]}"
+								S_name="${speech_LG[${name_index[$((answer-1))]}]}"
+								break
+							else
+								echo -e "${Red}Invalid Selected${NC}"
+							fi
+						done
+					elif [[ $count -eq 1 ]] ;then
+						S_code="${speech_LG[$((index+1))]}"
+						S_name="${speech_LG[index]}"
+					else
+						WARNING "[$language] Couldn't find the language to support" "$script_name"
+					fi
+
+					if [[ -n "$S_code" ]] && [[ -n "$S_name" ]] ;then
+						local find_src
+						if [[ "$S_name" =~ "Simplified" ]] ;then
+							find_src="simplified"
+						elif [[ "$S_name" =~ "Traditional" ]] ;then
+							find_src="traditional"
+						else
+							find_src="$(echo "$S_name" | awk '{print $1}' | sed 's/ //g')"
+						fi
+
+						SRC=$(grep -i "$find_src" "$source_path/SRC_LG.txt" | awk '{print $1}' | sed 's/ //g')
+					else
+						WARNING "S_code | S_name not exist" "$script_name"
+					fi
+		;;
+
+		llist  ) 
+					local line
+					while read -r line ;do
+						speech_LG+=("$(echo "$line" | awk -F '  ' '{print $NF}' | sed 's/^ //g')")
+						speech_LG+=("$(echo "$line" | awk -F '  ' '{print $1}' | sed 's/^ //g')")
+					done < "$source_path/Speech_LG.txt"
+					[[ $? -ne 0 ]] && ERROR "Get Speech Language FAIL! File not exist" "$script_name"
+					while read -r line ;do
+						SRC_LG+=("$(echo "$line" | awk -F '  ' '{print $NF}' | sed 's/^ //g' | sed -e "s/\b\(.\)/\u\1/g")")
+						SRC_LG+=("$(echo "$line" | awk -F '  ' '{print $1}' | sed 's/^ //g')")
+					done < "$source_path/SRC_LG.txt"
+					[[ $? -ne 0 ]] && ERROR "Get SRC Language FAIL! File not exist" "$script_name"
+		;;
+
+			  *)	ERROR "Get langcode error caused by improper function usage!" "$script_name"
+		;;
+	esac
+}
+
+# Function get translation destination language
+# $1: Input language or All language
+# return DTS_code | DTS_name
+function Get_dtsLG() {
+	[[ ${#SRC_LG[*]} -lt 214 ]] && WARNING "SRC does not cover all 107 languages" "$script_name"
+	[[ ${#SRC_LG[*]} -le 20 ]] && ERROR "SRC under 10 languages" "$script_name"
+
+	if [[ "$1" == "All_Language" ]] ;then
+		local i
+		local count=${#SRC_LG[*]}
+		local code_index
+		local name_index
+		local answer
+		local num
+		num=1
+		echo -e "\n${Green}All ${NC}${Blue}$((count/2))${NC} ${Green}languages.${NC}\n"
+		for ((i=0; i < count; i+=2)); do
+			if [[ $num -lt 10 ]] ;then
+				echo -e "\t  ${Lightgray}$num${NC}. ${Blue}${SRC_LG[i]}${NC}"
+			elif [[ $num -ge 10 ]] && [[ $num -lt 100 ]] ;then
+				echo -e "\t ${Lightgray}$num${NC}. ${Blue}${SRC_LG[i]}${NC}"
+			else
+				echo -e "\t${Lightgray}$num${NC}. ${Blue}${SRC_LG[i]}${NC}"
+			fi
+			code_index+=("$((i+1))")
+			name_index+=B
+			((num++))
+		done
+
+		while true ;do
+			echo -e "\n${Lightgray}Enter number to select: ${NC}"
+			read -r answer
+			if [[ $answer -lt $num ]] && [[ $answer =~ ^[0-9]+$ ]];then
+				DTS_code="${SRC_LG[${code_index[$((answer-1))]}]}"
+				DTS_name="${SRC_LG[${name_index[$((answer-1))]}]}"
+				break
+			else
+				echo -e "${Red}Invalid Selected${NC}"
+			fi
+		done
+	else
+		local InputDTS
+		local dts_lang
+		dts_lang="$(echo "$1" | tr '[:upper:]' '[:lower:]')"
+		if [[ "$dts_lang" =~ "china" ]] || [[ "$dts_lang" =~ "chinese" ]] ;then
+			echo -e "\n${Green}Found ${NC}${Blue}2${NC} ${Green}matching languages.${NC}\n"
+			while true ;do
+				echo -e "\n\t${Lightgray}1.${NC} ${Blue}Chinese (simplified)${NC}"
+				echo -e "\t${Lightgray}2.${NC} ${Blue}Chinese (traditional)${NC}"
+				echo -e "\n${Lightgray}Chose one: ${NC}"
+				read -r InputDTS
+				if [[ $InputDTS -eq 1 ]] ;then
+					dts_lang="simplified"
+					break
+				elif [[ $InputDTS -eq 2 ]] ;then
+					dts_lang="traditional"
+					break
+				else
+					echo -e "${Red}Invalid Selected${NC}"
+				fi
+			done
+		fi
+
+		DTS_code=$(grep -i "$dts_lang" "$source_path/SRC_LG.txt" | awk '{print $1}' | sed 's/ //g')
+		DTS_name=$(grep -i "$dts_lang" "$source_path/SRC_LG.txt" | awk '{print $2}' | sed 's/ //g' | sed -e "s/\b\(.\)/\u\1/g")
+		
+	fi
+
+	return 0
+}
+
+function Custom_Config() {
+	GetLangcode "llist"
+	while [[ -z "$S_code" ]] || [[ -z "$S_name" ]] || [[ -z "$SRC" ]] ;do
+		local InputLG
+		echo -e "\n${Lightgray}Enter Video Language: Eg. ${NC}${Lightcyan}Japanese${NC}${Lightgray} or ${NC}${Lightcyan}English ....${NC}"
+		echo -e "${Lightgray}Type ${NC}${Lightcyan}'show'${NC} ${Lightgray}to show all languages | Enter empty line will set English US is default\n${NC}"
+		read -r InputLG
+		[[ -z "$InputLG" ]] && S_code="ja-jp" && S_name="Japanese (Japan)" && SRC="ja" && break
+		if [[ "$InputLG" == "show" ]] || [[ "$InputLG" == "Show" ]] ;then
+			GetLangcode "lcode" "All_Language"
+		else
+			GetLangcode "lcode" "$InputLG"
+		fi
+	done
+	echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$S_name${NC}\n"
+
+	while [[ -z  "$DTS_name" ]] || [[ -z $DTS_code ]] ;do
+		local InputDTS
+		echo -e "${Lightgray}Translate subtitles to: Eg. ${NC}${Lightcyan}Japanese${NC}${Lightgray} or ${NC}${Lightcyan}English .... ${NC}"
+		echo -e "${Lightgray}Type ${NC}${Lightcyan}'show'${NC} ${Lightgray}to show all languages | Leaving the line blank will not translate the subtitles${NC}"
+		read -r InputDTS
+		[[ -z "$InputDTS" ]] && translate="no" 
+		if [[ "$InputDTS" == "show" ]] || [[ "$InputLG" == "Show" ]] ;then
+			Get_dtsLG "All_Language"
+		else
+			Get_dtsLG "$InputDTS"
+		fi
+	done
+	echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$DTS_name${NC}\n"
+
+	while true ;do
+		echo -e "${Lightgray}Enter Energy Threshold: ${NC}"
+		echo -e "${Lightgray}Leaving the line blank will set default${NC} ${Lightcyan}et = 2${NC}"
+		read -r et
+		[[ -z  $et ]] && et=2 && echo -e "${Green}SUCCESS chose${NC} ${Lightcyan} $et${NC}\n" && break
+		if [[  $et != [0-9] ]] ;then
+			echo -e "${Red}Invalid input. Need a number${NC}"
+		else
+			echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$et${NC}\n"
+			break
+		fi
+	done
+
+	while true ;do
+		echo -e "${Lightgray}Enter Minimum Region Size: ${NC}"
+		echo -e "${Lightgray}Leaving the line blank will set default${NC} ${Lightcyan}mnrs = 0.3${NC}"
+		read -r mnrs
+		[[ -z $mnrs ]] && mnrs=0.3 && echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$mnrs${NC}\n" && break
+		if [[ $mnrs != [0-9] ]] ;then
+			echo -e "${Red}Invalid input. Need a number${NC}"
+		else
+			echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$mnrs${NC}\n"
+			break
+		fi
+	done
+
+	while true ;do
+		echo -e "${Lightgray}Enter Maximum Region Size: ${NC}"
+		echo -e "${Lightgray}Leaving the line blank will set default${NC} ${Lightcyan}mxrs = 0.5${NC}"
+		read -r mxrs
+		[[ -z $mxrs ]] && mxrs=0.5 && echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$mxrs${NC}\n" && break
+		if [[ $mxrs != [0-9] ]] ;then
+			echo -e "${Red}Invalid input. Need a number${NC}"
+		else
+			echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$mxrs${NC}\n"
+			break
+		fi
+	done
+
+	while true ;do
+		echo -e "${Lightgray}Enter Max Continuous Silent: ${NC}"
+		echo -e "${Lightgray}Leaving the line blank will set default${NC} ${Lightcyan} mxcs = 0.3${NC}"
+		read -r mxcs
+		[[ -z  $mxcs ]] && mxcs=0.3 && echo -e "${Green}SUCCESS chose${NC} ${Lightcyan} $mxcs${NC}\n" && break
+		if [[  $mxcs != [0-9] ]] ;then
+			echo -e "${Red}Invalid input. Need a number${NC}"
+		else
+			echo -e "${Green}SUCCESS chose${NC} ${Lightcyan} $mxcs${NC}\n"
+			break
+		fi
+	done
+
+		local list_format=( "srt" "ass" "ssa" "sub" "mpl2.txt" "tmp" "vtt" "json" "ass.json" "txt" )
+		echo -e "${Lightgray}Translate is only available for formats${NC} ${Cyan}'srt | ass'${NC}${Lightgray}. Other formats will not translate by default${NC}"
+		echo -e "${Lightgray}Chose Subtitles Format: ${NC}"
+		select F in "${list_format[@]}" ;do
+			echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$F${NC}\n" && break
+		done
+		
+}
+
+# Setting optine for default run
+function Setting() {
+	echo -e "\n${Yellow}Setting Default option - If it is 'no' then it will be asked for each run${NC}\n"
+
+	echo -e "${Lightgray}Default Run: ${NC}"
+	select Default_Run in "yes" "no" ;do show_messenger "Set Default Run: $Default_Run" "$script_name" && break ;done
+
+	echo -e "\n${Lightgray}Audio Process: ${NC}"
+	select Audio_Process in "yes" "no" ;do show_messenger "Set Audio Process: $Audio_Process" "$script_name" && break ;done
+
+	echo -e "\n${Lightgray}Ignore Processed Video: ${NC}"
+	select Ignore_Processed in "yes" "no" ;do show_messenger "Set Ignore Processed Video: $Ignore_Processed" "$script_name" && break ;done
+
+	echo -e "\n${Lightgray}Auto Translate: ${NC}${White}only for ${NC}${Cyan}srt${NC} ${White}and${NC} ${Cyan}ass${NC}"
+	select Auto_Translate in "yes" "no" ;do show_messenger "Set Auto Translate: $Auto_Translate" "$script_name" && break ;done
+	
+}
+
 
 # function config
 function process_config() {
     case $1 in
         create_config ) # create new config file
-			echo -e ""
-			ConfigName=
-			echo 
-		
-                        
+			local source_config="https://raw.githubusercontent.com/LHViet245/Easy-Manager/main/data/default.config"
+			local name_config
+			local name_config_input
+			echo -e "\n${Lightcyan}Default Config: ${NC}\n"
+			curl -s "$source_config" | cat
+			echo -e "\n${Lightgray}Use default config file or custom ?${NC}"
+			select answer in "Default Config" "Custom Config" ;do break ;done
+			if [[ "$answer" == "Default Config" ]] ;then
+				if curl --silent --fail --output "${dir_config}/default.config" "$source_config" ;then
+					loaded_config="${dir_config}/default.config"
+					process_config "read_config"
+					show_messenger "Default config has been applied" "$script_name"
+					return 0
+				else
+					WARNING "URL get default config not exist!! Will create new config" "$script_name"
+					false
+				fi
+			else
+				false
+			fi
+			if [[ $? -ne 0 ]] ;then
+				Custom_Config
+				Setting
+			fi
+			name_config="$(echo "$S_name" | awk '{print $1}' | tr -d ',')_${DTS_name}_$(date '+%d%m%Y').config"
+			echo -e "\n${Lightgray}Name the config file: ${NC} - No need '.config' "
+			echo -e "${Lightgray}Leaving the line blank will set default name${NC} ${Lightcyan}$name_config${NC}"
+			read -r name_config_input
+			if [[ -n "$name_config_input" ]] ;then
+				if [[ "${name_config_input##*.}" == "config" ]] ;then
+					name_config="${name_config_input}"
+				else
+					name_config="${name_config_input}.config"
+				fi
+			fi
 
+			show_messenger "The config file name has been set [$name_config]" "$script_name"
+
+echo "[ DO NOT DELETE THE LEFT COLUMN 
+      SPACE MUST NOT CHANGE     ]
+==============CONFIG==============
+Speech Language         :   ${S_code}
+SRC Language            :   ${SRC}
+Destination Language    :   ${DTS_code}
+Minimum Region Size     :   ${mnrs}
+Maximum Region Size     :   ${mxrs}
+Max Continuous Silent   :   ${mxcs}
+Energy Threshold        :   ${et}
+Subtitles Format        :   ${F}
+==================================
+[OPTION]
+Default Run             :   ${Default_Run}
+Audio Process           :   ${Audio_Process}
+Ignore Processed Video  :   ${Ignore_Processed}
+Auto Translate          :   ${Auto_Translate}" > "$dir_config/$name_config"
+			loaded_config="$dir_config/$name_config"
+			loaded_config_name="$(basename "$loaded_config")"
+			show_messenger "Config has been saved at '$dir_config/$name_config'" "$script_name"
+			echo -e "${Yellow}You can edit it later !${NC}"
+		;;
+
+		read_config )
+			[[ ! -f "$loaded_config" ]] && ERROR "Cant load config! Config Not Found" "$script_name"
+
+			loaded_config_name="$(basename "$loaded_config")"
+			S_code="$(grep -w '^Speech Language' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
+			S_name="$(grep -w "$S_code" "$source_path/Speech_LG.txt" | awk -F '  ' '{print $NF}' | sed 's/^ //g')"
+			SRC="$(grep -w '^SRC Language' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
+			DTS_code="$(grep -w '^Destination Language' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
+			DTS_name="$(grep -w "$DTS_code" "$source_path/SRC_LG.txt" | awk '{print $NF}' | sed 's/ //g' | sed -e "s/\b\(.\)/\u\1/g")"
+			mnrs="$(grep -w '^Minimum Region Size' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
+			mxrs="$(grep -w '^Maximum Region Size' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
+			mxcs="$(grep -w '^Max Continuous Silent' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
+			et="$(grep -w '^Energy Threshold' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
+			F="$(grep -w '^Subtitles Format' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
+			Default_Run="$(grep -w '^Default Run' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
+			Audio_Process="$(grep -w '^Audio Process' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
+			Ignore_Processed="$(grep -w '^Ignore Processed Video' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
+			Auto_Translate="$(grep -w '^Auto Translate' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
+		;;
+
+		handle_config )
+			local filecfg
+			local num_file
+			local new_config
+			num_file=1
+			echo -e "${Orange}List Config: \n${NC}"
+			while IFS= read -r filecfg ;do
+				if [[ -f "$filecfg" ]] ;then
+					if [[ "$(grep -w '^Default Run' "$filecfg" | awk '{print $NF}' | sed 's/ //g')" == "yes" ]] ;then
+						loaded_config="$filecfg"
+						loaded_config_name="$(basename "$filecfg")"
+						process_config "read_config"
+						return 0
+					else
+						config_name[$num_file]="$(basename "$filecfg")"
+						if [[ $num_file -lt 10 ]]; then
+								echo -e "\t\t ${BWhite}$num_file.${NC} ${Lightblue}${config_name[$num_file]}${NC}"
+						else
+								echo -e "\t\t${BWhite}$num_file.${NC} ${Lightblue}${config_name[$num_file]}${NC}"
+						fi
+					fi
+				fi
+				((num_file++))
+			done< <(find "$dir_config" -maxdepth 1 -type f -name "*.config") 2>/dev/null
+
+			echo -e "\n${Orange}Found${NC} ${Cyan}$((num_file - 1))${NC} ${Orange}config files${NC}\n"
+
+			echo -e "${Lightgray}Select the config file you want to use.${NC}"
+			echo -e "${Lightgray}Type${NC} ${Cyan}'config'${NC} ${Lightgray}to create a new config file.${NC}"
+			echo -e "${Lightgray}Type${NC} ${Cyan}'show [number]'${NC} ${Lightgray}to see config file information. Eg.${NC} ${Cyan}'show 1'${NC}"
+			echo -e "${Lightgray}Type${NC} ${Cyan}'rm [number]'${NC} ${Lightgray}to delete config file. Eg.${NC} ${Cyan}'rm 1'${NC}"
+			echo -e "${BWhite}Enter blank will automatically load the first config file.${NC}"
+			read -r new_config
+			if { [[ "$new_config" -lt $num_file ]] && [[ "$new_config" -ge 1 ]] && [[ "$new_config" =~ ^[0-9]+$ ]];} 2>/dev/null; then
+				num_file=$new_config
+				loaded_config="$dir_config/${config_name[$num_file]}"
+				echo -e "${Lightgray}Set default this config file for next run? (y/n)${NC}"
+				ask_user && sed -i '/^\(\s\|#\)*Default Run/ c\Default Run             :   yes' "$loaded_config"
+				process_config "read_config"
+			elif [[ -z "$new_config" ]] ;then
+				num_file=1
+				loaded_config="$dir_config/${config_name[$num_file]}"
+				echo -e "${Lightgray}Set default this config file for next run? (y/n)${NC}"
+				ask_user && sed -i '/^\(\s\|#\)*Default Run/ c\Default Run             :   yes' "$loaded_config"
+				process_config "read_config"
+			elif [[ "$new_config" == "config" ]] ;then
+				process_config "create_config"
+			elif [[ ${new_config:0:4} == "show" ]] && [[ $(echo "$new_config" | awk '{print $NF}') =~ ^[0-9]+$ ]] && [[ $(echo "$new_config" | awk '{print $NF}') -lt "$num_file" ]];then
+				num_file=$(echo "$new_config" | awk '{print $NF}')
+				loaded_config="$dir_config/${config_name[$num_file]}"
+				! less -X "$loaded_config" && clear && WARNING "File not found! Cannot Show file config" "$script_name" || clear
+				process_config "handle_config"
+			elif [[ ${new_config:0:2} == "rm" ]] && [[ $(echo "$new_config" | awk '{print $NF}') =~ ^[0-9]+$ ]] && [[ $(echo "$new_config" | awk '{print $NF}') -lt "$num_file" ]];then
+				num_file=$(echo "$new_config" | awk '{print $NF}')
+				loaded_config="$dir_config/${config_name[$num_file]}"
+				! rm "$loaded_config" && clear && WARNING "File not found! Cannot delete file config" "$script_name" || clear
+				process_config "handle_config"
+			else
+				echo -e "${Red}Invalid choice. Please chose again!\n${NC}"
+				process_config "handle_config"
+			fi
+			
+			
+			show_messenger "Success load config [$loaded_config]" "$script_name"
+		;;
+	esac  
 }
 
+# Progress like [P] 4/10 [C] 3/10 [F] 1/10
+# [P] Current process
+# [C] completed
+# [F] Fail
 function ShowProcess() {
 	echo -ne "${Purple}[P]${NC} ${Lightgray}$num_process/$total_process${NC}"
 	[[ -n $num_check_COMP ]] && echo -ne " | ${Green}[C]${NC} ${Lightgray}$num_check_COMP/$total_process${NC}"
@@ -63,12 +488,14 @@ function ShowProcess() {
 }
 
 # Run autosub with Audio Processing
+# $1 item want to autosub
 function autosub-with-ap () {
 	show_messenger "[$filename] Autosub With Audio Processing (-ap)" "$script_name"
-	ShowProcess && echo ""
-	"$atsrun" \
+	ShowProcess
+	echo
+	autosub \
 	--input "$1"  \
-	--speech-language $S \
+	--speech-language $S_code \
 	--min-region-size $mnrs \
 	--max-region-size $mxrs \
 	--energy-threshold $et \
@@ -81,12 +508,14 @@ function autosub-with-ap () {
 }
 
 # Run autosub without Audio Processing
+# $1 item want to autosub
 function autosub-without-ap () {
 	show_messenger "[$filename] Autosub Without Audio Processing (no -ap)\n" "$script_name"
-	ShowProcess && echo ""
-	"$atsrun" \
+	ShowProcess
+	echo
+	autosub \
 	--input "$1"  \
-	--speech-language $S \
+	--speech-language $S_code \
 	--min-region-size $mnrs \
 	--max-region-size $mxrs \
 	--energy-threshold $et \
@@ -100,31 +529,34 @@ function autosub-without-ap () {
 # Function Translate Subtitle
 # Rename Subtitle to .srt only and Remove file Subtitle Origin
 function Translate() {
-echo -e "\n${LIGHTCYAN}==================================${NC}"
-echo -e "         ${LIGHTCYAN}CONFIG TRANSLATE        |${NC}"
-echo -e "${LIGHTCYAN}SRC Language: 	       ${YELLOW}$S${NC}     |${NC}"
-echo -e "${LIGHTCYAN}Destination Language:  ${YELLOW}$d${NC}        |${NC}"
-echo -e "${LIGHTCYAN}==================================${NC}\n"
-echo -e "${LIGHTBLUE}Starting Translate${NC} ${YELLOW}[$filename]${NC}\n"
-	$atsrun \
+# echo -e "\n${LIGHTCYAN}==================================${NC}"
+# echo -e "         ${LIGHTCYAN}CONFIG TRANSLATE        |${NC}"
+# echo -e "${LIGHTCYAN}SRC Language: 	       ${YELLOW}$S${NC}     |${NC}"
+# echo -e "${LIGHTCYAN}Destination Language:  ${YELLOW}$d${NC}        |${NC}"
+# echo -e "${LIGHTCYAN}==================================${NC}\n"
+
+show_messenger "[$filename] Starting Translate Subtitle" "$script_name"
+ShowProcess
+echo
+	autosub \
 	--input "$1" \
-	--src-language $src \
-	--dst-language $d \
+	--src-language $SRC \
+	--dst-language $DTS_code \
 	--format $F \
 	--yes
 	sleep 0.5
-	if ! mv "$filepath/$name.$S.$d.$f" "$filepath/$name.$f" 2>/dev/null ;then
+	if ! mv "$filepath/$name.$$S_code.$DTS_code.$F" "$filepath/$name.$F" 2>/dev/null ;then
 	    ERROR "FAIL rename subtitle name" "$script_name"
 	else
-	    rm "$filepath/$name.$S.$f" 2>/dev/null
+	    rm "$filepath/$name.$S_code.$F" 2>/dev/null
 	fi
 }
 
 # Function Cleanup
 function clean_temp {
-	find /tmp -maxdepth 0 -type f -name "*.flac" -delete 2>/dev/null && show_messenger "Clean .flac temp completed" "$script_name" || WARNING "Having problems cleaning temp .flac" "$script_name"
-	find /tmp -maxdepth 0 -type f -name "*.wav" -delete 2>/dev/null && show_messenger "Clean .wav temp completed" "$script_name" || WARNING "Having problems cleaning temp .wav" "$script_name"
-    find /tmp -maxdepth 0 -type f -name "*.mov" -delete 2>/dev/null && show_messenger "Clean .mov temp completed" "$script_name" || WARNING "Having problems cleaning temp .mov" "$script_name"
+	find /tmp -maxdepth 0 -type f -name "*.flac" -delete 2>/dev/null && show_messenger "Clean .flac in /tmp completed" "$script_name" || WARNING "Having problems cleaning temp .flac" "$script_name"
+	find /tmp -maxdepth 0 -type f -name "*.wav" -delete 2>/dev/null && show_messenger "Clean .wav  in /tmp completed" "$script_name" || WARNING "Having problems cleaning temp .wav" "$script_name"
+    find /tmp -maxdepth 0 -type f -name "*.mov" -delete 2>/dev/null && show_messenger "Clean .mov  in /tmp completed" "$script_name" || WARNING "Having problems cleaning temp .mov" "$script_name"
 	return 0
 }
 
@@ -137,10 +569,11 @@ function CheckVideoDone() {
 }
 
 # Function create list need to handle
+# $1 dicrectory to find and create list
 function CreateListFile() {
 	local video
 	while IFS= read -r video ;do
-		if [[ -f $video ]] && CheckVideoDone || [[ -f $video ]] && [[ "$skipFile" == "yes" ]] ;then
+		if [[ -f $video ]] && CheckVideoDone || { [[ -f $video ]] && [[ "$skipFile" == "yes" ]]; } ;then
 			list_video+=("$video")
 		elif [[ -f $video ]] && ! CheckVideoDone ;then
 			echo "$(basename "$video")" >> "$cptodriveDONE"
@@ -150,21 +583,34 @@ function CreateListFile() {
 	[[ $? -ne 0 ]] && ERROR "Create List Video need to handle is FAIL" "$script_name"
 }
 
+# Function create list subtitle need to handle
+# $1 dicrectory to find and create list
+function CreateListSubtitle() {
+	local subtitle
+	while IFS= read -r subtitle ;do
+		if [[ -f "$subtitle" ]] 2>/dev/null ;then
+			list_subtitle+=("$Subtitle")
+			if	[[ ${subtitle##*.} == "srt" ]] ;then
+				count_srt+=1
+			elif [[ ${subtitle##*.} == "ass" ]] ;then
+				count_ass+=1
+			fi
+		fi
+	done < <(find "$1" -maxdepth 1 -type f \( -iname \*.srt -o -iname \*.ass\) 2>/dev/null)
+	[[ $? -ne 0 ]] && ERROR "Create List Video need to handle is FAIL" "$script_name"
+}
+
 function control_autosub() {
-    declare -A list_video=()
+    list_video=()
 	local skipAP
-	first="yes"
+	first="yes" # run command only 1 in loop
 	echo -e "Skip Audio Process? No -ap (y/n)"
 	ask_user && skipAP="yes" && show_messenger "No Audio Process." "$script_name"
 	echo -e "Ignore previously processed video? (y/n)"
 	ask_user && skipFile="yes" && show_messenger "Ignore processed video." "$script_name"
 
-    if [[ $# -le 1 ]] && [[ -d "$1" ]] || [[ -z "$1" ]] ;then
-		if [[ -d "$1" ]] ;then
-			CreateListFile "$(readlink -f "$1")"
-		else
-			CreateListFile "$PWD"
-		fi
+    if [[ $# -eq 0 ]] ;then
+		CreateListFile "$PWD"
     else
 		local file
 		for file in "$@" ;do
@@ -180,8 +626,8 @@ function control_autosub() {
 			fi
 		done
     fi
-	total_process=$((${#list_video[*]}-$num_check_DONE))
-	echo -ne "\n${Green}TOTAL:${NC} ${Lightgray}$total_process${NC} ${Purple}Video${NC}"
+	total_process=$((${#list_video[*]} - num_check_DONE))
+	echo -ne "\n${Green}TOTAL:${NC} ${Lightgray}$total_process${NC} ${Purple}Video${NC}\n"
 	[[ -n $num_check_DONE ]] && echo -e " | ${Lightgray}$num_check_DONE${NC} ${Lightyellow}Video is DONE${NC}\n" || echo ""
 	for file in "${list_video[@]}" ;do
 		num_process+=1
@@ -192,14 +638,14 @@ function control_autosub() {
 			autosub-with-ap "$file" || autosub-without-ap "$file"
 		fi
 		[[ $? -ne 0 ]] && ERROR "[$filename] autosub processing FAIL !" "$script_name"
-		if [ -f "$filepath/$name.$S.$f" ] ;then
-				Translate "$filepath/$name.$S.$f"
+		if [ -f "$filepath/$name.$S_code.$F" ] ;then
+				Translate "$filepath/$name.$S_code.$F"
 		else
-				WARNING "[$filename] File subtitle "$name.$S.$f" not Exist !" "$script_name"
+				WARNING "[$filename] File subtitle "$name.$S_code.$F" not Exist !" "$script_name"
 				false
 		fi
-		if [[ $? -ne 0 ]] && [[ ! -f "$filepath/$name.$f" ]] ;then
-			WARNING "[$filename] Translate Subtitle [$name.$S.$f] Processing Fail" "$script_name"
+		if [[ $? -ne 0 ]] && [[ ! -f "$filepath/$name.$F" ]] ;then
+			WARNING "[$filename] Translate Subtitle [$name.$S_code.$F] Processing Fail" "$script_name"
 			echo "$filename" >> "$autosubfail"
 			num_check_FAIL+=1
 		else
@@ -213,6 +659,56 @@ function control_autosub() {
 	done
 
 	CheckFile
+	unset list_video
+	unset total_process
+	unset num_check_COMP
+	unset num_check_FAIL
+	unset num_check_DONE
+
+}
+
+function control_translate() {
+	local sub
+	if [[ $# -eq 0 ]] ;then
+		CreateListSubtitle "$PWD"
+	else
+		for sub in "$@" ;do
+			if [[ -d "$sub" ]] ;then
+				CreateListSubtitle "$(readlink -f "$sub")"
+			else
+				list_subtitle+=("$(readlink -f "$sub")")
+				if	[[ ${sub##*.} == "srt" ]] ;then
+					count_srt+=1
+				elif [[ ${sub##*.} == "ass" ]] ;then
+					count_ass+=1
+				fi
+			fi
+		done
+	fi
+	total_process=${#list_subtitle[*]}
+	echo -ne "\n${Green}TOTAL:${NC} ${Lightgray}$total_process${NC} ${Purple}Subtitle${NC}"
+	[[ -n "$count_srt" ]] && echo -ne " | ${Lightgray}$count_srt${NC} ${Cyan}srt${NC}"
+	[[ -n "$count_ass" ]] && echo -ne " | ${Lightgray}$count_ass${NC} ${Lightcyan}ass${NC}"
+	echo
+
+	for subtitle in "${list_subtitle[@]}" ;do
+		num_process+=1
+		filebasename "$subtitle"
+		if Translate "$subtitle" ;then
+			echo "$subtitle" >> "$autosubcomp"
+			num_check_COMP+=1
+		else
+			echo "$subtitle" >> "$autosubfail"
+			num_check_FAIL+=1
+		fi
+	done
+
+	CheckFile
+	unset list_subtitle
+	unset total_process
+	unset num_check_COMP
+	unset num_check_FAIL
+	unset num_check_DONE
 
 }
 
@@ -256,94 +752,55 @@ function CheckFile() {
 	rm "$autosubfail" 2>/dev/null
 	fi
 
-	echo ""
+	
 	ShowProcess
 	echo ""
 }
 
 function menu_autosub() {
+echo -e "                                      Loaded              : $loaded_config_name"
+echo -e "   ***************************        Speech Language     : $S_name"
+echo -e "   * Autosub Translate Video *        Translate Language  : $DTS_name"
+echo -e "   ***************************        Deafault Run        : $Default_Run"
+echo -e "         Version $Version                Audio Process       : $Audio_Process"
+echo -e "                                      Ignore Processed    : $Ignore_Processed"
+echo -e "                                      Auto Translate      : $Auto_Translate"
 
-echo -e "{BWhite}    Main Menu: What would you like to do?${NC}"
-echo -e "{BWhite}${NC}"
-echo -e "{BWhite}Press the number of your choice:${NC}"
-echo -e "{BWhite}${NC}"
-echo -e "{BWhite}	1 - Autosub Japanese${NC}"
-echo -e "{BWhite}	2 - Autosub Chinese (Simplified, China)${NC}"
-echo -e "{BWhite}	3 - Autosub English US${NC}"
-echo -e "{BWhite}	4 - Translate Subtitle (Japanese Default)${NC}"
-echo -e "{BWhite}	5 - Custom Autosub${NC}"
-echo -e "{BWhite}${NC}"
-echo -e "{BWhite}	0 - Exit${NC}"
+
+echo -e "\n${BWhite}Main Menu: What would you like to do?${NC}"
+echo -e "${BWhite}${NC}"
+echo -e "${BWhite}Press the number of your choice:${NC}"
+echo -e "${BWhite}${NC}"
+echo -e "${BWhite}	1 - Autosub $S_name${NC}"
+echo -e "${BWhite}	2 - Autosub Chinese (Simplified, China)${NC}"
+echo -e "${BWhite}	3 - Autosub English US${NC}"
+echo -e "${BWhite}	4 - Translate Subtitle (Japanese Default)${NC}"
+echo -e "${BWhite}	5 - Custom Autosub${NC}"
+echo -e "${BWhite}${NC}"
+echo -e "${BWhite}	0 - Exit${NC}"
 
 read -r -n 1 -s choice;
 
 	case $choice in
 
 		1 )  # Autosub Japanese
-			control-autosub "$@"
+			control_autosub "$@"
 		;;
 
 		2 )	# Autosub Chinese (Simplified, China)
-			S="cmn-hans-cn"
-			src="zh-cn"
-			control-autosub "$@"
+			S_code="cmn-hans-cn"
+			SRC="zh-cn"
+			control_autosub "$@"
 		;;
 
 		3 )	# Autosub English
-			S="en-us"
-			src="en"
-			control-autosub "$@"
+			S_code="en-us"
+			SRC="en"
+			control_autosub "$@"
 		;;
 
 		4 )	# Translate (Japanese)
-			echo -e "Config Language ?"
-			if ! ask_user ;then
-				for file in "$@" ;do
-					# Info for Base Name
-					filebasename "$file"
-					# Translate Subtitle
-					echo -e "${LIGHTBLUE}Translating ${YELLOW}[$filename]${NC} $S to $d ${NC}"
-					if ! Translate ;then
-						echo -e "${YELLOW}[$filename]${NC} ${RED}is FAIL${NC}"
-						echo -e "${RED}Please Translate Again${NC}"
-					else
-						echo -e "\n${GREEN}Translate [$filename] is DONE${NC}"
-					fi
-				done
-			else
-				# Option for Custom Translate
-				read -p -r 'Enter Video Language /src : ' src1
-				# Display list SRC Support
-				if [ -n "$(autosub -lsc | grep -i "$src1")" ] 2>/dev/null ;then
-					autosub -lsc | grep -i "$src1"
-					read -p -r 'Enter the "SRC Language" parameter as above /Ex: en-us : ' src
-				else
-					echo -e "${RED}Language does not exist or does not support !${NC}"
-				fi
-				echo
-				read -p -r 'Enter Destination Language /d : ' d1
-				# Display list D Support
-				if [ -n "$(autosub -ltc | grep -i "$d1")" ] 2>/dev/null ;then
-					autosub -ltc | grep -i "$d1"
-					read -p -r 'Enter the "DST Language" parameter as above /Ex: en : ' d
-				else
-					echo -e "${RED}Language does not exist or does not support !${NC}"
-				fi
-
-				for file in "$@" ;do
-					# Info for Base Name
-					filebasename "$file"
-					# Translate Subtitle
-					echo -e "${LIGHTBLUE}Translating ${YELLOW}[$filename]${NC} $S to $d ${NC}"
-					if ! Translate ;then
-						echo -e "${YELLOW}[$filename]${NC} ${RED}is FAIL${NC}"
-						echo -e "${RED}Please Translate Again${NC}"
-					else
-						echo -e "\n${GREEN}Translate [$filename] is DONE${NC}"
-					fi
-				done
-			fi
-			clear
+			control_translate "$@"
 		;;
 
 		5 ) # Custom
@@ -355,7 +812,7 @@ read -r -n 1 -s choice;
 					echo -e "${LIGHTCYAN}Check and start autosub ! (y/n)${NC}"
 					! ask_user || continue 0
 			done
-			control-autosub "$@"
+			control_autosub "$@"
 		;;
 
 		0 )	# Break Menu
@@ -367,14 +824,30 @@ read -r -n 1 -s choice;
 
 		* )	# Not Valid Choice
 			clear
-			echo -e "\n${RED}Not a valid choice${NC}"
-			echo -e "${RED}Please choice some number${NC}\n"
-			menuAutosub "$@"
+			echo -e "\n${Red}Not a valid choice${NC}"
+			echo -e "${Red}Please choice some number${NC}\n"
+			menu_autosub "$@"
 		;;
 
 	esac
 
-} 
+}
 
 
+###############################################################################################
+######################################## RUNNING SCRIPT #######################################
+
+# if [[ ! -f "$source_path/Speech_LG.txt" ]] || [[ ! -f "$source_path/SRC_LG.txt" ]] ;then
+# 	ERROR "Cannot get source language! File not found"
+# fi
+which autosub >/dev/null || ERROR "Autosub is not installed. Please make sure it's already installed." "$script_name"
+
+if [[ "$(find "$dir_config" -maxdepth 1 -type f -name '*.config' | wc -c)" -eq 0 ]] ;then
+	process_config "create_config"
+else
+	process_config "handle_config"
+fi
+
+
+menu_autosub "$@"
 
