@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+version_sharedFN="1.1"
 
 source_script="$HOME/.auto-manager-server"
+script_dir_sharedfn="$(readlink -f "$0")"
 [[ ! -d "$source_script" ]] && mkdir -p  "$source_script"
 
 # color text
@@ -151,46 +153,22 @@ function testvercomp() {
     fi
 }
 
-# Function get list menu
-function Create_SubMenu() {
-    local file
-    declare -A ListSubMenu=()
-    while IFS= read -r file ;do
-		if [[ -f "$file" ]] ;then
-			ListSubMenu+=("$(basename "$file")")
-		fi
-		((num_file++))
-	done< <(find "$1" -type f -iname "*.$2") 2>/dev/null
+# Check new version
+function update_version() {
+    new_version="$(curl -s "$2" | awk 'FNR==2' | awk -F= '{print $NF}' | tr -d ' "')"
+    testvercomp "$new_version" "$1" ">"
 }
 
-# Usage: bannerColor "my title" "red" "*"
-function bannerColor() {
-    case ${2} in
-        black) color=Black
-        ;;
-        red) color=Red
-        ;;
-        green) color=Green
-        ;;
-        yellow) color=Yellow
-        ;;
-        blue) color=Blue
-        ;;
-        magenta) color=Purple
-        ;;
-        cyan) color=Cyan
-        ;;
-        white) color=White
-        ;;
-        *) echo "color is not set"; exit 1
-        ;;
-    esac
+function run_update() {
+    curl -s -o "$1" "$2"
+    chmod +x "$1"
+}
 
-    local msg="${3} ${1} ${3}"
-    local edge
-    edge=${msg//?/$3}
-    echo -e "${!color}${edge}${NC}"
-    echo -e "${!color}${msg}${NC}"
-    echo -e "${!color}${edge}${NC}"
-    echo
+function update_sharedFn() {
+    local new_version_Fn
+    new_version_Fn="$(curl -s "https://raw.githubusercontent.com/LHViet245/Easy-Manager/main/scripts/SharedFunc" | awk 'FNR==2' | awk -F= '{print $NF}' | tr -d ' "')"
+    if testvercomp "$new_version_Fn" "$version_sharedFN" ">" ;then
+        curl -s -o "$script_dir_sharedfn" "https://raw.githubusercontent.com/LHViet245/Easy-Manager/main/scripts/SharedFunc"
+        chmod +x "$script_dir_sharedfn"
+    fi
 }

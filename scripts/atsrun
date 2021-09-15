@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-Version="2.0.2"
+Version_atsrun="2.0.2"
 
 # Get shared function
 ! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
@@ -7,6 +7,7 @@ Version="2.0.2"
 # Get color
 color
 
+git_dir_atsrun="https://raw.githubusercontent.com/LHViet245/Easy-Manager/main/scripts/atsrun"
 script_name="$(basename "$0")"
 source_path="$source_script/atsrun"
 autosubcomp="$source_path/AutosubCOMP.txt"
@@ -482,7 +483,7 @@ Auto Translate          :   ${Auto_Translate}" > "$dir_config/$name_config"
 # [C] completed
 # [F] Fail
 function ShowProcess() {
-	echo -ne "${Purple}[P]${NC} ${Lightgray}$num_process/$total_process${NC}"
+	echo -ne "${Yellow}[P]${NC} ${Lightgray}$num_process/$total_process${NC}"
 	[[ -n $num_check_COMP ]] && echo -ne " | ${Green}[C]${NC} ${Lightgray}$num_check_COMP/$total_process${NC}"
 	[[ -n $num_check_FAIL ]] && echo -ne " | ${Red}[F]${NC} ${Lightgray}$num_check_FAIL/$total_process${NC}"
 }
@@ -757,12 +758,14 @@ function CheckFile() {
 	echo ""
 }
 
+
+
 function menu_autosub() {
 echo -e "                                      Loaded              : $loaded_config_name"
 echo -e "   ***************************        Speech Language     : $S_name"
 echo -e "   * Autosub Translate Video *        Translate Language  : $DTS_name"
 echo -e "   ***************************        Deafault Run        : $Default_Run"
-echo -e "         Version $Version                Audio Process       : $Audio_Process"
+echo -e "         Version $Version_atsrun                Audio Process       : $Audio_Process"
 echo -e "                                      Ignore Processed    : $Ignore_Processed"
 echo -e "                                      Auto Translate      : $Auto_Translate"
 
@@ -776,6 +779,7 @@ echo -e "${BWhite}	2 - Autosub Chinese (Simplified, China)${NC}"
 echo -e "${BWhite}	3 - Autosub English US${NC}"
 echo -e "${BWhite}	4 - Translate Subtitle (Japanese Default)${NC}"
 echo -e "${BWhite}	5 - Custom Autosub${NC}"
+update_version "$Version_atsrun" "$git_dir_atsrun" >/dev/null && local update="yes" && echo -e "${BWhite}	6 - Update new version ${NC}${Green}$new_version${NC}" 
 echo -e "${BWhite}${NC}"
 echo -e "${BWhite}	0 - Exit${NC}"
 
@@ -813,6 +817,16 @@ read -r -n 1 -s choice;
 					! ask_user || continue 0
 			done
 			control_autosub "$@"
+		;;
+
+		6 ) Update Version
+			if [[ "$update" == "yes" ]] ;then
+				run_update "$0" "$git_dir_atsrun"
+				update_sharedFn
+				show_messenger "Update COMPLETE. Version: $new_version" "$script_name"
+			else
+				show_messenger "${Green}Current version:${NC} ${Lightcyan}$Version_atsrun${NC} ${Green}is lasted. New version:${NC} ${Lightcyan}$new_version${NC}"
+			fi
 		;;
 
 		0 )	# Break Menu
