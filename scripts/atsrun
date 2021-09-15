@@ -819,13 +819,13 @@ read -r -n 1 -s choice;
 			control_autosub "$@"
 		;;
 
-		6 ) Update Version
+		6 ) # Update Version
 			if [[ "$update" == "yes" ]] ;then
 				run_update "$0" "$git_dir_atsrun"
 				update_sharedFn
 				show_messenger "Update COMPLETE. Version: $new_version" "$script_name"
 			else
-				show_messenger "${Green}Current version:${NC} ${Lightcyan}$Version_atsrun${NC} ${Green}is lasted. New version:${NC} ${Lightcyan}$new_version${NC}"
+				show_messenger "Current version: $Version_atsrun is lasted. New version: $new_version"
 			fi
 		;;
 
