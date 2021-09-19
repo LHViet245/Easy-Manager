@@ -156,7 +156,7 @@ function testvercomp() {
 # Check new version
 function update_version() {
     new_version="$(curl -s "$2" | awk 'FNR==2' | awk -F= '{print $NF}' | tr -d ' "')"
-    testvercomp "$new_version" "$1" ">"
+    testvercomp "$new_version" "$1" ">" 
 }
 
 function run_update() {

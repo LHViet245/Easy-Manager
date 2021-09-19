@@ -217,111 +217,151 @@ function Get_dtsLG() {
 
 function Custom_Config() {
 	GetLangcode "llist"
-	while [[ -z "$S_code" ]] || [[ -z "$S_name" ]] || [[ -z "$SRC" ]] ;do
-		local InputLG
-		echo -e "\n${Lightgray}Enter Video Language: Eg. ${NC}${Lightcyan}Japanese${NC}${Lightgray} or ${NC}${Lightcyan}English ....${NC}"
-		echo -e "${Lightgray}Type ${NC}${Lightcyan}'show'${NC} ${Lightgray}to show all languages | Enter empty line will set English US is default\n${NC}"
-		read -r InputLG
-		[[ -z "$InputLG" ]] && S_code="ja-jp" && S_name="Japanese (Japan)" && SRC="ja" && break
-		if [[ "$InputLG" == "show" ]] || [[ "$InputLG" == "Show" ]] ;then
-			GetLangcode "lcode" "All_Language"
-		else
-			GetLangcode "lcode" "$InputLG"
-		fi
-	done
-	echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$S_name${NC}\n"
+	case "$1" in
+	lcode )
+		while [[ -z "$S_code" ]] || [[ -z "$S_name" ]] || [[ -z "$SRC" ]] ;do
+			local InputLG
+			echo -e "\n${Lightgray}Enter Video Language: Eg. ${NC}${Lightcyan}Japanese${NC}${Lightgray} or ${NC}${Lightcyan}English ....${NC}"
+			echo -e "${Lightgray}Type ${NC}${Lightcyan}'show'${NC} ${Lightgray}to show all languages | Enter empty line will set English US is default\n${NC}"
+			read -r InputLG
+			[[ -z "$InputLG" ]] && S_code="ja-jp" && S_name="Japanese (Japan)" && SRC="ja" && break
+			if [[ "$InputLG" == "show" ]] || [[ "$InputLG" == "Show" ]] ;then
+				GetLangcode "lcode" "All_Language"
+			else
+				GetLangcode "lcode" "$InputLG"
+			fi
+		done
+		echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$S_name${NC}\n"
+	;;
 
-	while [[ -z  "$DTS_name" ]] || [[ -z $DTS_code ]] ;do
-		local InputDTS
-		echo -e "${Lightgray}Translate subtitles to: Eg. ${NC}${Lightcyan}Japanese${NC}${Lightgray} or ${NC}${Lightcyan}English .... ${NC}"
-		echo -e "${Lightgray}Type ${NC}${Lightcyan}'show'${NC} ${Lightgray}to show all languages | Leaving the line blank will not translate the subtitles${NC}"
-		read -r InputDTS
-		[[ -z "$InputDTS" ]] && translate="no" 
-		if [[ "$InputDTS" == "show" ]] || [[ "$InputLG" == "Show" ]] ;then
-			Get_dtsLG "All_Language"
-		else
-			Get_dtsLG "$InputDTS"
-		fi
-	done
-	echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$DTS_name${NC}\n"
+	dts_code )
+		while [[ -z  "$DTS_name" ]] || [[ -z $DTS_code ]] ;do
+			local InputDTS
+			echo -e "${Lightgray}Translate subtitles to: Eg. ${NC}${Lightcyan}Japanese${NC}${Lightgray} or ${NC}${Lightcyan}English .... ${NC}"
+			echo -e "${Lightgray}Type ${NC}${Lightcyan}'show'${NC} ${Lightgray}to show all languages | Leaving the line blank will not translate the subtitles${NC}"
+			read -r InputDTS
+			[[ -z "$InputDTS" ]] && translate="no" 
+			if [[ "$InputDTS" == "show" ]] || [[ "$InputLG" == "Show" ]] ;then
+				Get_dtsLG "All_Language"
+			else
+				Get_dtsLG "$InputDTS"
+			fi
+		done
+		echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$DTS_name${NC}\n"
+	;;
 
-	while true ;do
-		echo -e "${Lightgray}Enter Energy Threshold: ${NC}"
-		echo -e "${Lightgray}Leaving the line blank will set default${NC} ${Lightcyan}et = 2${NC}"
-		read -r et
-		[[ -z  $et ]] && et=2 && echo -e "${Green}SUCCESS chose${NC} ${Lightcyan} $et${NC}\n" && break
-		if [[  $et != [0-9] ]] ;then
-			echo -e "${Red}Invalid input. Need a number${NC}"
-		else
-			echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$et${NC}\n"
-			break
-		fi
-	done
+	threshold )
+		while true ;do
+			echo -e "${Lightgray}Enter Energy Threshold: ${NC}"
+			echo -e "${Lightgray}Leaving the line blank will set default${NC} ${Lightcyan}et = 2${NC}"
+			read -r et
+			[[ -z  $et ]] && et=2 && echo -e "${Green}SUCCESS chose${NC} ${Lightcyan} $et${NC}\n" && break
+			if [[  $et != [0-9] ]] ;then
+				echo -e "${Red}Invalid input. Need a number${NC}"
+			else
+				echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$et${NC}\n"
+				break
+			fi
+		done
+	;;
 
-	while true ;do
-		echo -e "${Lightgray}Enter Minimum Region Size: ${NC}"
-		echo -e "${Lightgray}Leaving the line blank will set default${NC} ${Lightcyan}mnrs = 0.3${NC}"
-		read -r mnrs
-		[[ -z $mnrs ]] && mnrs=0.3 && echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$mnrs${NC}\n" && break
-		if [[ $mnrs != [0-9] ]] ;then
-			echo -e "${Red}Invalid input. Need a number${NC}"
-		else
-			echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$mnrs${NC}\n"
-			break
-		fi
-	done
+	mnrs )
+		while true ;do
+			echo -e "${Lightgray}Enter Minimum Region Size: ${NC}"
+			echo -e "${Lightgray}Leaving the line blank will set default${NC} ${Lightcyan}mnrs = 0.3${NC}"
+			read -r mnrs
+			[[ -z $mnrs ]] && mnrs=0.3 && echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$mnrs${NC}\n" && break
+			if [[ $mnrs != [0-9] ]] ;then
+				echo -e "${Red}Invalid input. Need a number${NC}"
+			else
+				echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$mnrs${NC}\n"
+				break
+			fi
+		done
+	;;
 
-	while true ;do
-		echo -e "${Lightgray}Enter Maximum Region Size: ${NC}"
-		echo -e "${Lightgray}Leaving the line blank will set default${NC} ${Lightcyan}mxrs = 0.5${NC}"
-		read -r mxrs
-		[[ -z $mxrs ]] && mxrs=0.5 && echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$mxrs${NC}\n" && break
-		if [[ $mxrs != [0-9] ]] ;then
-			echo -e "${Red}Invalid input. Need a number${NC}"
-		else
-			echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$mxrs${NC}\n"
-			break
-		fi
-	done
+	mxrs )
+		while true ;do
+			echo -e "${Lightgray}Enter Maximum Region Size: ${NC}"
+			echo -e "${Lightgray}Leaving the line blank will set default${NC} ${Lightcyan}mxrs = 0.5${NC}"
+			read -r mxrs
+			[[ -z $mxrs ]] && mxrs=0.5 && echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$mxrs${NC}\n" && break
+			if [[ $mxrs != [0-9] ]] ;then
+				echo -e "${Red}Invalid input. Need a number${NC}"
+			else
+				echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$mxrs${NC}\n"
+				break
+			fi
+		done
+	;;
 
-	while true ;do
-		echo -e "${Lightgray}Enter Max Continuous Silent: ${NC}"
-		echo -e "${Lightgray}Leaving the line blank will set default${NC} ${Lightcyan} mxcs = 0.3${NC}"
-		read -r mxcs
-		[[ -z  $mxcs ]] && mxcs=0.3 && echo -e "${Green}SUCCESS chose${NC} ${Lightcyan} $mxcs${NC}\n" && break
-		if [[  $mxcs != [0-9] ]] ;then
-			echo -e "${Red}Invalid input. Need a number${NC}"
-		else
-			echo -e "${Green}SUCCESS chose${NC} ${Lightcyan} $mxcs${NC}\n"
-			break
-		fi
-	done
-
+	mxcs )
+		while true ;do
+			echo -e "${Lightgray}Enter Max Continuous Silent: ${NC}"
+			echo -e "${Lightgray}Leaving the line blank will set default${NC} ${Lightcyan} mxcs = 0.3${NC}"
+			read -r mxcs
+			[[ -z  $mxcs ]] && mxcs=0.3 && echo -e "${Green}SUCCESS chose${NC} ${Lightcyan} $mxcs${NC}\n" && break
+			if [[  $mxcs != [0-9] ]] ;then
+				echo -e "${Red}Invalid input. Need a number${NC}"
+			else
+				echo -e "${Green}SUCCESS chose${NC} ${Lightcyan} $mxcs${NC}\n"
+				break
+			fi
+		done
+	;;
+	
+	sub_format )
 		local list_format=( "srt" "ass" "ssa" "sub" "mpl2.txt" "tmp" "vtt" "json" "ass.json" "txt" )
 		echo -e "${Lightgray}Translate is only available for formats${NC} ${Cyan}'srt | ass'${NC}${Lightgray}. Other formats will not translate by default${NC}"
 		echo -e "${Lightgray}Chose Subtitles Format: ${NC}"
 		select F in "${list_format[@]}" ;do
 			echo -e "${Green}SUCCESS chose${NC} ${Lightcyan}$F${NC}\n" && break
 		done
+	;;
+
+	* ) # Custom All
+		Custom_Config "lcode"
+		Custom_Config "dts_code"
+		Custom_Config "threshold"
+		Custom_Config "mnrs"
+		Custom_Config "mxrs"
+		Custom_Config "mxcs"
+		Custom_Config "sub_format"
+	;;
+esac
 		
 }
 
 # Setting optine for default run
 function Setting() {
 	echo -e "\n${Yellow}Setting Default option - If it is 'no' then it will be asked for each run${NC}\n"
+	case "$1" in
+	dfRun )
+		echo -e "${Lightgray}Default Run: ${NC}"
+		select Default_Run in "yes" "no" ;do show_messenger "Set Default Run: $Default_Run" "$script_name" && break ;done
+	;;
+	audio )
+		echo -e "\n${Lightgray}Audio Process: ${NC}"
+		select Audio_Process in "yes" "no" ;do show_messenger "Set Audio Process: $Audio_Process" "$script_name" && break ;done
+	;;
 
-	echo -e "${Lightgray}Default Run: ${NC}"
-	select Default_Run in "yes" "no" ;do show_messenger "Set Default Run: $Default_Run" "$script_name" && break ;done
+	ignore )
+		echo -e "\n${Lightgray}Ignore Processed Video: ${NC}"
+		select Ignore_Processed in "yes" "no" ;do show_messenger "Set Ignore Processed Video: $Ignore_Processed" "$script_name" && break ;done
+	;;
 
-	echo -e "\n${Lightgray}Audio Process: ${NC}"
-	select Audio_Process in "yes" "no" ;do show_messenger "Set Audio Process: $Audio_Process" "$script_name" && break ;done
+	translate )
+		echo -e "\n${Lightgray}Auto Translate: ${NC}${White}only for ${NC}${Cyan}srt${NC} ${White}and${NC} ${Cyan}ass${NC}"
+		select Auto_Translate in "yes" "no" ;do show_messenger "Set Auto Translate: $Auto_Translate" "$script_name" && break ;done
+	;;
 
-	echo -e "\n${Lightgray}Ignore Processed Video: ${NC}"
-	select Ignore_Processed in "yes" "no" ;do show_messenger "Set Ignore Processed Video: $Ignore_Processed" "$script_name" && break ;done
-
-	echo -e "\n${Lightgray}Auto Translate: ${NC}${White}only for ${NC}${Cyan}srt${NC} ${White}and${NC} ${Cyan}ass${NC}"
-	select Auto_Translate in "yes" "no" ;do show_messenger "Set Auto Translate: $Auto_Translate" "$script_name" && break ;done
-	
+	* )
+		Setting "dfRun"
+		Setting "audio"
+		Setting "ignore"
+		Setting "translate"
+	;;
+esac
 }
 
 
@@ -435,7 +475,7 @@ Auto Translate          :   ${Auto_Translate}" > "$dir_config/$name_config"
 				((num_file++))
 			done< <(find "$dir_config" -maxdepth 1 -type f -name "*.config") 2>/dev/null
 
-			echo -e "\n${Orange}Found${NC} ${Cyan}$((num_file - 1))${NC} ${Orange}config files${NC}\n"
+			echo -e "\n${Orange}Found${NC} ${Lightyellow}$((num_file - 1))${NC} ${Orange}config files${NC}\n"
 
 			echo -e "${Lightgray}Select the config file you want to use.${NC}"
 			echo -e "${Lightgray}Type${NC} ${Cyan}'config'${NC} ${Lightgray}to create a new config file.${NC}"
@@ -460,12 +500,16 @@ Auto Translate          :   ${Auto_Translate}" > "$dir_config/$name_config"
 			elif [[ ${new_config:0:4} == "show" ]] && [[ $(echo "$new_config" | awk '{print $NF}') =~ ^[0-9]+$ ]] && [[ $(echo "$new_config" | awk '{print $NF}') -lt "$num_file" ]];then
 				num_file=$(echo "$new_config" | awk '{print $NF}')
 				loaded_config="$dir_config/${config_name[$num_file]}"
+				clear
+				echo -e "\n${Yellow}    !!! Press${NC} ${Lightyellow}Q${NC} ${Yellow}to Quit !!!${NC}"
 				! less -X "$loaded_config" && clear && WARNING "File not found! Cannot Show file config" "$script_name" || clear
 				process_config "handle_config"
 			elif [[ ${new_config:0:2} == "rm" ]] && [[ $(echo "$new_config" | awk '{print $NF}') =~ ^[0-9]+$ ]] && [[ $(echo "$new_config" | awk '{print $NF}') -lt "$num_file" ]];then
 				num_file=$(echo "$new_config" | awk '{print $NF}')
 				loaded_config="$dir_config/${config_name[$num_file]}"
 				! rm "$loaded_config" && clear && WARNING "File not found! Cannot delete file config" "$script_name" || clear
+				echo
+				show_messenger "Removed ${config_name[$num_file]}" "$script_name"
 				process_config "handle_config"
 			else
 				echo -e "${Red}Invalid choice. Please chose again!\n${NC}"
@@ -758,7 +802,94 @@ function CheckFile() {
 	echo ""
 }
 
+function menuSetting() {
+	local chose
+	option=("Edit Current Config" "Create New Config" "Choose Another Config")
+	if [[ "$Default_Run" == "yes" ]] ;then
+		option+=("Reset Default Run In Current Config")
+	fi
+	echo -e "Chose One: "
+	select chose in "${option[@]}" ;do
+		case $chose in
+			"${option[0]}" )
+				echo -e "\n${Lightgray}Press the number of your choice:${NC}"
+				unset option
+				unset chose
+				option=("Setting Config" "Setting Option" "Done (quit to menu)")
+				select chose in "${option[@]}" ;do
+					case $chose in
+						"${option[0]}" )
+							Custom_Config
+							sed -i '/^\(\s\|#\)*Speech Language/ c\Speech Language             :   '$S_code'' "$loaded_config"
+							sed -i '/^\(\s\|#\)*SRC Language/ c\SRC Language             :   '$SRC'' "$loaded_config"
+							sed -i '/^\(\s\|#\)*Destination Language/ c\Destination Language             :   '$DTS_code'' "$loaded_config"
+							sed -i '/^\(\s\|#\)*Minimum Region Size/ c\Minimum Region Size             :   '$mnrs'' "$loaded_config"
+							sed -i '/^\(\s\|#\)*Maximum Region Size/ c\Maximum Region Size             :   '$mxrs'' "$loaded_config"
+							sed -i '/^\(\s\|#\)*Max Continuous Silent/ c\Max Continuous Silent             :   '$mxcs'' "$loaded_config"
+							sed -i '/^\(\s\|#\)*Subtitles Format/ c\Subtitles Format             :   '$F'' "$loaded_config"
+							clear
+							show_messenger "Setting Config COMPLETED" "$script_name"
+							echo
+						;;
+						"${option[1]}" )
+							Setting
+							sed -i '/^\(\s\|#\)*Default Run/ c\Default Run             :   '$Default_Run'' "$loaded_config"
+							sed -i '/^\(\s\|#\)*Audio Process/ c\Audio Process             :   '$Audio_Process'' "$loaded_config"
+							sed -i '/^\(\s\|#\)*Ignore Processed Video/ c\Ignore Processed Video             :   '$Ignore_Processed'' "$loaded_config"
+							sed -i '/^\(\s\|#\)*Auto Translate/ c\Auto Translate             :   '$Translate'' "$loaded_config"
+							clear
+							show_messenger "Setting Option COMPLETED" "$script_name"
+							echo
+						;;
+						"${option[2]}" )
+							menu_autosub "$@"
+							break
+						;;
+						* ) 
+							clear
+							echo -e "\n${Red}Not a valid choice${NC}"
+							echo -e "${Red}Please choice some number${NC}\n"
+						;;
+					esac
+				done
+				break
+			;;
 
+			"${option[1]}" )
+				process_config "create_config"
+				process_config "read_config"
+				menu_autosub "$@"
+				break
+			;;
+
+			"${option[2]}" )
+				process_config "handle_config"
+				menu_autosub "$@"
+				break
+			;;
+			
+			"${option[((${#option[*]}-1))]}" )
+				if [[ -f "$loaded_config" ]] ;then
+					sed -i '/^\(\s\|#\)*Default Run/ c\Default Run             :   no' "$loaded_config"
+				else
+					ERROR "Config path not recognized" "$script_name"
+				fi
+				show_messenger "[$loaded_config_name] Reset Default Run SUCCESS" "$script_name"
+				process_config "handle_config"
+				menu_autosub "$@"
+				break
+			;;
+
+
+			* )
+				clear
+				echo -e "\n${Red}Not a valid choice${NC}"
+				echo -e "${Red}Please choice some number${NC}\n"
+			;;
+		esac
+	done
+	unset option
+}
 
 function menu_autosub() {
 echo -e "                                      Loaded              : $loaded_config_name"
@@ -778,7 +909,7 @@ echo -e "${BWhite}	1 - Autosub $S_name${NC}"
 echo -e "${BWhite}	2 - Autosub Chinese (Simplified, China)${NC}"
 echo -e "${BWhite}	3 - Autosub English US${NC}"
 echo -e "${BWhite}	4 - Translate Subtitle (Japanese Default)${NC}"
-echo -e "${BWhite}	5 - Custom Autosub${NC}"
+echo -e "${BWhite}	5 - Setting or chose other Config${NC}"
 update_version "$Version_atsrun" "$git_dir_atsrun" >/dev/null && local update="yes" && echo -e "${BWhite}	6 - Update new version ${NC}${Green}$new_version${NC}" 
 echo -e "${BWhite}${NC}"
 echo -e "${BWhite}	0 - Exit${NC}"
@@ -808,15 +939,7 @@ read -r -n 1 -s choice;
 		;;
 
 		5 ) # Custom
-			while true
-				do
-					constan
-					custom-autosub
-					config
-					echo -e "${LIGHTCYAN}Check and start autosub ! (y/n)${NC}"
-					! ask_user || continue 0
-			done
-			control_autosub "$@"
+			menuSetting "$@"
 		;;
 
 		6 ) # Update Version
@@ -825,7 +948,7 @@ read -r -n 1 -s choice;
 				update_sharedFn
 				show_messenger "Update COMPLETE. Version: $new_version" "$script_name"
 			else
-				show_messenger "Current version: $Version_atsrun is lasted. New version: $new_version"
+				show_messenger "Current version: $Version_atsrun is lasted. New version: $new_version" "$script_name"
 			fi
 		;;
 
@@ -833,7 +956,7 @@ read -r -n 1 -s choice;
 			echo -e "\n${LIGHTCYAN}DONE ALL${NC}"
 			echo -e "${LIGHTCYAN}THANK YOU FOR USING${NC}"
 			clear
-			exit 0
+			return
 		;;
 
 		* )	# Not Valid Choice
@@ -864,4 +987,7 @@ fi
 
 
 menu_autosub "$@"
+
+echo -e "\n${Lightgray}DONE ALL${NC}"
+echo -e "${Lightgray}THANK YOU FOR USING!${NC}"
 
