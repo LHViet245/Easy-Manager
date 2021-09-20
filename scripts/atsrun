@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-Version_atsrun="2.0.7"
+Version_atsrun="2.0.8"
 
 # Get shared function
 ! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
@@ -606,7 +606,7 @@ function clean_temp {
 }
 
 function CheckVideoDone() {
-	if [[ $(grep -wFc "$filename" "$cptodriveCOMP") -eq 0 ]] ;then
+	if [[ $(grep -wFc "$filename" "$autosubcomp") -eq 0 ]] || [[ ! -f "$autosubcomp" ]] ;then
 		return 0
 	else
 		return 1
@@ -624,7 +624,7 @@ function CreateListFile() {
 			echo "$(basename "$video")" >> "$cptodriveDONE"
 			num_check_DONE+=1
 		fi
-	done < <(find "$1" -maxdepth 1 -type f \( -iname \*.mp4 -o -iname \*.mkv -o -iname \*.avi -o -iname \*.ts -o -iname \*.flv -o -iname \*.m4v -o -iname \*.mov -o -iname \*.wmv\) 2>/dev/null)
+	done < <(find "$1" -maxdepth 1 -type f \( -iname \*.mp4 -o -iname \*.mkv -o -iname \*.avi -o -iname \*.ts -o -iname \*.flv -o -iname \*.m4v -o -iname \*.mov -o -iname \*.wmv \))
 	[[ $? -ne 0 ]] && ERROR "Create List Video need to handle is FAIL" "$script_name"
 }
 
