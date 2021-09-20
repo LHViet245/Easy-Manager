@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-Version_atsrun="2.0.2"
+Version_atsrun="2.0.4"
 
 # Get shared function
 ! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
@@ -802,6 +802,56 @@ function CheckFile() {
 	echo ""
 }
 
+function editCurrentConfig() {
+	echo -e "${Lightgray}Press the number of your choice:${NC}"
+	unset option
+	unset chose
+	option=("Setting Config" "Setting Option" "Done (quit to menu)")
+	select chose in "${option[@]}" ;do
+		case $chose in
+			"${option[0]}" )
+				unset S_code
+				unset SRC
+				unset DTS_code
+				Custom_Config
+				sed -i '/^\(\s\|#\)*Speech Language/ c\Speech Language             :   '$S_code'' "$loaded_config"
+				sed -i '/^\(\s\|#\)*SRC Language/ c\SRC Language             :   '$SRC'' "$loaded_config"
+				sed -i '/^\(\s\|#\)*Destination Language/ c\Destination Language             :   '$DTS_code'' "$loaded_config"
+				sed -i '/^\(\s\|#\)*Minimum Region Size/ c\Minimum Region Size             :   '$mnrs'' "$loaded_config"
+				sed -i '/^\(\s\|#\)*Maximum Region Size/ c\Maximum Region Size             :   '$mxrs'' "$loaded_config"
+				sed -i '/^\(\s\|#\)*Max Continuous Silent/ c\Max Continuous Silent             :   '$mxcs'' "$loaded_config"
+				sed -i '/^\(\s\|#\)*Subtitles Format/ c\Subtitles Format             :   '$F'' "$loaded_config"
+				clear
+				show_messenger "Setting Config COMPLETED" "$script_name"
+				echo
+				editCurrentConfig "$@"
+				break
+			;;
+			"${option[1]}" )
+				Setting
+				sed -i '/^\(\s\|#\)*Default Run/ c\Default Run             :   '$Default_Run'' "$loaded_config"
+				sed -i '/^\(\s\|#\)*Audio Process/ c\Audio Process             :   '$Audio_Process'' "$loaded_config"
+				sed -i '/^\(\s\|#\)*Ignore Processed Video/ c\Ignore Processed Video             :   '$Ignore_Processed'' "$loaded_config"
+				sed -i '/^\(\s\|#\)*Auto Translate/ c\Auto Translate             :   '$Translate'' "$loaded_config"
+				clear
+				show_messenger "Setting Option COMPLETED" "$script_name"
+				echo
+				editCurrentConfig "$@"
+				break
+			;;
+			"${option[2]}" )
+				menu_autosub "$@"
+				break
+			;;
+			* ) 
+				clear
+				echo -e "\n${Red}Not a valid choice${NC}"
+				echo -e "${Red}Please choice some number${NC}\n"
+			;;
+		esac
+	done
+}
+
 function menuSetting() {
 	local chose
 	option=("Edit Current Config" "Create New Config" "Choose Another Config")
@@ -812,46 +862,7 @@ function menuSetting() {
 	select chose in "${option[@]}" ;do
 		case $chose in
 			"${option[0]}" )
-				echo -e "\n${Lightgray}Press the number of your choice:${NC}"
-				unset option
-				unset chose
-				option=("Setting Config" "Setting Option" "Done (quit to menu)")
-				select chose in "${option[@]}" ;do
-					case $chose in
-						"${option[0]}" )
-							Custom_Config
-							sed -i '/^\(\s\|#\)*Speech Language/ c\Speech Language             :   '$S_code'' "$loaded_config"
-							sed -i '/^\(\s\|#\)*SRC Language/ c\SRC Language             :   '$SRC'' "$loaded_config"
-							sed -i '/^\(\s\|#\)*Destination Language/ c\Destination Language             :   '$DTS_code'' "$loaded_config"
-							sed -i '/^\(\s\|#\)*Minimum Region Size/ c\Minimum Region Size             :   '$mnrs'' "$loaded_config"
-							sed -i '/^\(\s\|#\)*Maximum Region Size/ c\Maximum Region Size             :   '$mxrs'' "$loaded_config"
-							sed -i '/^\(\s\|#\)*Max Continuous Silent/ c\Max Continuous Silent             :   '$mxcs'' "$loaded_config"
-							sed -i '/^\(\s\|#\)*Subtitles Format/ c\Subtitles Format             :   '$F'' "$loaded_config"
-							clear
-							show_messenger "Setting Config COMPLETED" "$script_name"
-							echo
-						;;
-						"${option[1]}" )
-							Setting
-							sed -i '/^\(\s\|#\)*Default Run/ c\Default Run             :   '$Default_Run'' "$loaded_config"
-							sed -i '/^\(\s\|#\)*Audio Process/ c\Audio Process             :   '$Audio_Process'' "$loaded_config"
-							sed -i '/^\(\s\|#\)*Ignore Processed Video/ c\Ignore Processed Video             :   '$Ignore_Processed'' "$loaded_config"
-							sed -i '/^\(\s\|#\)*Auto Translate/ c\Auto Translate             :   '$Translate'' "$loaded_config"
-							clear
-							show_messenger "Setting Option COMPLETED" "$script_name"
-							echo
-						;;
-						"${option[2]}" )
-							menu_autosub "$@"
-							break
-						;;
-						* ) 
-							clear
-							echo -e "\n${Red}Not a valid choice${NC}"
-							echo -e "${Red}Please choice some number${NC}\n"
-						;;
-					esac
-				done
+				editCurrentConfig "$@"
 				break
 			;;
 
