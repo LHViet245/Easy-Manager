@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-version_sharedFN="1.1"
+version_sharedFN="1.2"
 
 source_script="$HOME/.auto-manager-server"
 script_dir_sharedfn="$(readlink -f "$0")"
@@ -155,7 +155,7 @@ function testvercomp() {
 
 # Check new version
 function update_version() {
-    new_version="$(curl -s "$2" | awk 'FNR==2' | awk -F= '{print $NF}' | tr -d ' "')"
+    new_version="$(curl -s "$2" | awk 'FNR==2' | awk -F= '{print $NF}' | tr -d ' "' 2>/dev/null)"
     testvercomp "$new_version" "$1" ">" 
 }
 

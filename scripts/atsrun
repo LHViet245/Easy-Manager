@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-Version_atsrun="2.0.4"
+Version_atsrun="2.0.5"
 
 # Get shared function
 ! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
@@ -527,7 +527,7 @@ Auto Translate          :   ${Auto_Translate}" > "$dir_config/$name_config"
 # [C] completed
 # [F] Fail
 function ShowProcess() {
-	echo -ne "${Yellow}[P]${NC} ${Lightgray}$num_process/$total_process${NC}"
+	echo -ne "${Lightcyan}[P]${NC} ${Lightgray}$num_process/$total_process${NC}"
 	[[ -n $num_check_COMP ]] && echo -ne " | ${Green}[C]${NC} ${Lightgray}$num_check_COMP/$total_process${NC}"
 	[[ -n $num_check_FAIL ]] && echo -ne " | ${Red}[F]${NC} ${Lightgray}$num_check_FAIL/$total_process${NC}"
 }
@@ -659,8 +659,8 @@ function control_autosub() {
     else
 		local file
 		for file in "$@" ;do
-			if [[ -d "$video" ]];then
-				CreateListFile "$(readlink -f "$file")"
+			if [[ -d "$file" ]];then
+				CreateListFile "$file"
 			else
 				if CheckVideoDone || [[ "$skipFile" == "yes" ]] ;then
 					list_video+=("$(readlink -f "$file")")
@@ -699,7 +699,7 @@ function control_autosub() {
 			num_check_COMP+=1
 		fi
 
-		clean_temp
+		clean_temp >/dev/null
 
 	done
 
@@ -790,14 +790,14 @@ function CheckFile() {
 	fi
 	## List File Fail
 	if [[ -f "$autosubfail" ]];then
-	echo -e "\n${BRed}[FAIL]${NC}"
+	echo -e "\n${Red}[FAIL]${NC}"
 	while IFS= read -r list ;do
 			echo -e "${Red}$list${NC}"
 	done < <(cat "$autosubfail") 2>/dev/null
 	rm "$autosubfail" 2>/dev/null
 	fi
 
-	
+	echo ""
 	ShowProcess
 	echo ""
 }
@@ -921,7 +921,7 @@ echo -e "${BWhite}	2 - Autosub Chinese (Simplified, China)${NC}"
 echo -e "${BWhite}	3 - Autosub English US${NC}"
 echo -e "${BWhite}	4 - Translate Subtitle (Japanese Default)${NC}"
 echo -e "${BWhite}	5 - Setting or chose other Config${NC}"
-update_version "$Version_atsrun" "$git_dir_atsrun" >/dev/null && local update="yes" && echo -e "${BWhite}	6 - Update new version ${NC}${Green}$new_version${NC}" 
+update_version "$Version_atsrun" "$git_dir_atsrun" >/dev/null && local update="yes" && echo -e "${BYellow}	6 - Update new version ${NC}${Green}$new_version${NC}" 
 echo -e "${BWhite}${NC}"
 echo -e "${BWhite}	0 - Exit${NC}"
 
