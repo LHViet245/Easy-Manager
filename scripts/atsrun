@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-Version_atsrun="2.0.5"
+Version_atsrun="2.0.6"
 
 # Get shared function
 ! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
@@ -660,7 +660,7 @@ function control_autosub() {
 		local file
 		for file in "$@" ;do
 			if [[ -d "$file" ]];then
-				CreateListFile "$file"
+				CreateListFile "$(readlink -f "$file")"
 			else
 				if CheckVideoDone || [[ "$skipFile" == "yes" ]] ;then
 					list_video+=("$(readlink -f "$file")")
@@ -672,6 +672,7 @@ function control_autosub() {
 		done
     fi
 	total_process=$((${#list_video[*]} - num_check_DONE))
+	[[ $total_process -eq 0 ]] && show_messenger "Not found video. Check again !" "$script_name" && exit
 	echo -ne "\n${Green}TOTAL:${NC} ${Lightgray}$total_process${NC} ${Purple}Video${NC}\n"
 	[[ -n $num_check_DONE ]] && echo -e " | ${Lightgray}$num_check_DONE${NC} ${Lightyellow}Video is DONE${NC}\n" || echo ""
 	for file in "${list_video[@]}" ;do
@@ -954,10 +955,10 @@ read -r -n 1 -s choice;
 		;;
 
 		6 ) # Update Version
+			cp "$0" "$0.old"
 			if [[ "$update" == "yes" ]] ;then
 				run_update "$0" "$git_dir_atsrun"
 				update_sharedFn
-				show_messenger "Update COMPLETE. Version: $new_version" "$script_name"
 			else
 				show_messenger "Current version: $Version_atsrun is lasted. New version: $new_version" "$script_name"
 			fi

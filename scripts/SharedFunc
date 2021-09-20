@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-version_sharedFN="1.2"
+version_sharedFN="1.3"
 
 source_script="$HOME/.auto-manager-server"
-script_dir_sharedfn="$(readlink -f "$0")"
+script_dir_sharedfn="$0"
 [[ ! -d "$source_script" ]] && mkdir -p  "$source_script"
 
 # color text
@@ -162,6 +162,7 @@ function update_version() {
 function run_update() {
     curl -s -o "$1" "$2"
     chmod +x "$1"
+    show_messenger "Update $script_name COMPLETE. Version: $new_version" "$script_name"
 }
 
 function update_sharedFn() {
@@ -170,5 +171,6 @@ function update_sharedFn() {
     if testvercomp "$new_version_Fn" "$version_sharedFN" ">" ;then
         curl -s -o "$script_dir_sharedfn" "https://raw.githubusercontent.com/LHViet245/Easy-Manager/main/scripts/SharedFunc"
         chmod +x "$script_dir_sharedfn"
+        show_messenger "Update $(basename "$script_dir_sharedfn") COMPLETE. Version: $new_version" "$script_name"
     fi
 }
