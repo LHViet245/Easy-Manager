@@ -960,7 +960,10 @@ read -r -n 1 -s choice;
 				run_update "$0" "$git_dir_atsrun"
 				update_sharedFn
 			else
-				show_messenger "Current version: $Version_atsrun is lasted. New version: $new_version" "$script_name"
+				echo -e "${Cyan}$script_name}{NC} ${Green}Current version:${NC} ${Cyan}$Version_atsrun${NC} ${Green}is lasted. No need Update${NC}"
+				echo -e "${Cyan}$script_name}{NC} ${Green}new version:${NC} ${Cyan}$new_version${NC}"
+				echo -e "${Cyan}SharedFunc${NC} ${Green}Current version:${NC} ${Cyan}$version_sharedFN${NC}"
+				echo -e "${Cyan}SharedFunc${NC} ${Green}new version:${NC} ${NC}$new_version_Fn${NC}"
 			fi
 		;;
 
