@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-Version_atsrun="2.1.0"
+Version_atsrun="2.1.1"
 
 # Get shared function
 ! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
@@ -458,7 +458,7 @@ Auto Translate          :   ${Auto_Translate}" > "$dir_config/$name_config"
 			echo -e "${Orange}List Config: \n${NC}"
 			while IFS= read -r filecfg ;do
 				if [[ -f "$filecfg" ]] ;then
-					if [[ "$(grep -w '^Default Run' "$filecfg" | awk '{print $NF}' | sed 's/ //g')" == "yes" ]] ;then
+					if [[ "$(grep -w '^Default Run' "$filecfg" | awk '{print $NF}' | sed 's/ //g')" == "yes" ]] 2>/dev/null;then
 						loaded_config="$filecfg"
 						loaded_config_name="$(basename "$filecfg")"
 						process_config "read_config"
@@ -527,9 +527,9 @@ Auto Translate          :   ${Auto_Translate}" > "$dir_config/$name_config"
 # [C] completed
 # [F] Fail
 function ShowProcess() {
-	echo -ne "${Lightcyan}[P]${NC} ${Lightgray}$num_process/$total_process${NC}"
-	[[ -n $num_check_COMP ]] && echo -ne " | ${Green}[C]${NC} ${Lightgray}$num_check_COMP/$total_process${NC}"
-	[[ -n $num_check_FAIL ]] && echo -ne " | ${Red}[F]${NC} ${Lightgray}$num_check_FAIL/$total_process${NC}"
+	echo -ne "${Lightcyan}[P]${NC} ${Lightgray}${num_process}/${total_process}${NC}"
+	[[ -n $num_check_COMP ]] && echo -ne " | ${Green}[C]${NC} ${Lightgray}${num_check_COMP}/${total_process}${NC}"
+	[[ -n $num_check_FAIL ]] && echo -ne " | ${Red}[F]${NC} ${Lightgray}${num_check_FAIL}/${total_process}${NC}"
 }
 
 # Run autosub with Audio Processing
@@ -593,7 +593,7 @@ echo
 	if ! mv "$filepath/$name.$S_code.$DTS_code.$F" "$filepath/$name.$F" 2>/dev/null ;then
 	    ERROR "FAIL rename subtitle" "$script_name"
 	else
-	    rm "$filepath/$name.$S_code.$F" 2>/dev/null
+	    ! rm "$filepath/$name.$S_code.$F" 2>/dev/null && WARNING "Cant remove subtitle $filepath/$name.$S_code.$F" "$script_name"
 	fi
 }
 
@@ -606,7 +606,7 @@ function clean_temp {
 }
 
 function CheckVideoDone() {
-	if [[ $(grep -wFc "$filename" "$autosubcomp") -eq 0 ]] || [[ ! -f "$autosubcomp" ]] ;then
+	if [[ $(grep -wFc "$filename" "$autosubcomp") -eq 0 ]] || [[ ! -f "$autosubcomp" ]] 2>/dev/null;then
 		return 0
 	else
 		return 1
@@ -624,7 +624,7 @@ function CreateListFile() {
 			list_video+=("$video")
 		elif [[ -f "$video" ]] && ! CheckVideoDone ;then
 			echo "$filename" >> "$cptodriveDONE"
-			num_check_DONE+=1
+			((num_check_DONE+=1))
 		fi
 	done < <(find "$1" -maxdepth 1 -type f \( -iname \*.mp4 -o -iname \*.mkv -o -iname \*.avi -o -iname \*.ts -o -iname \*.flv -o -iname \*.m4v -o -iname \*.mov -o -iname \*.wmv \))
 	[[ $? -ne 0 ]] && ERROR "Create List Video need to handle is FAIL" "$script_name"
@@ -652,7 +652,7 @@ function AutoRenameVideo() {
 	local baseDir
 	baseName="$(basename "$1")"
 	baseDir="$(dirname "$1")"
-	if [[ "$baseName" =~ ^hhd800.com@ ]] ;then
+	if [[ "$baseName" =~ ^hhd800.com@ ]] 2>/dev/null;then
 		mv "$1" "${baseDir}/${baseName##*@}"
 		video="${baseDir}/${baseName##*@}"
 	else
@@ -683,18 +683,18 @@ function control_autosub() {
 					list_video+=("$(readlink -f "$file")")
 				else
 					echo "$filename" >> "$cptodriveDONE"
-					num_check_DONE+=1
+					((num_check_DONE+=1))
 				fi
 			fi
 		done
     fi
 	unset video
 	total_process=$((${#list_video[*]} - num_check_DONE))
-	[[ $total_process -eq 0 ]] && show_messenger "Not found video. Check again !" "$script_name" && exit
+	[[ $total_process -eq 0 ]] && ERROR "Not found video to handle. Check again !" "$script_name"
 	echo -ne "\n${Green}TOTAL:${NC} ${Lightgray}$total_process${NC} ${Purple}Video${NC}\n"
 	[[ -n $num_check_DONE ]] && echo -e " | ${Lightgray}$num_check_DONE${NC} ${Lightyellow}Video is DONE${NC}\n" || echo ""
 	for file in "${list_video[@]}" ;do
-		num_process+=1
+		((num_process+=1))
 		filebasename "$file"
 		if [[ "$skipAP" == "yes" ]] ;then
 			autosub-without-ap "$file"
@@ -702,7 +702,7 @@ function control_autosub() {
 			autosub-with-ap "$file" || autosub-without-ap "$file"
 		fi
 		[[ $? -ne 0 ]] && ERROR "[$filename] autosub processing FAIL !" "$script_name"
-		if [ -f "$filepath/$name.$S_code.$F" ] ;then
+		if [ -f "$filepath/$name.$S_code.$F" ] 2>/dev/null;then
 				Translate "$filepath/$name.$S_code.$F"
 		else
 				WARNING "[$filename] File subtitle "$name.$S_code.$F" not Exist !" "$script_name"
@@ -711,11 +711,11 @@ function control_autosub() {
 		if [[ $? -ne 0 ]] && [[ ! -f "$filepath/$name.$F" ]] ;then
 			WARNING "[$filename] Translate Subtitle [$name.$S_code.$F] Processing Fail" "$script_name"
 			echo "$filename" >> "$autosubfail"
-			num_check_FAIL+=1
+			((num_check_FAIL+=1))
 		else
 			[[ "$first" == "yes" ]] && echo "---------------------------" >> "$autosubcomp" && first="no"
 			echo "$filename" >> "$autosubcomp"
-			num_check_COMP+=1
+			((num_check_COMP+=1))
 		fi
 
 		clean_temp >/dev/null
@@ -751,6 +751,7 @@ function control_translate() {
 		done
 	fi
 	total_process=${#list_subtitle[*]}
+	[[ $total_process -eq 0 ]] && ERROR "Not found subtitle to handle. Check again !" "$script_name"
 	echo -ne "\n${Green}TOTAL:${NC} ${Lightgray}$total_process${NC} ${Purple}Subtitle${NC}"
 	[[ -n "$count_srt" ]] && echo -ne " | ${Lightgray}$count_srt${NC} ${Cyan}srt${NC}"
 	[[ -n "$count_ass" ]] && echo -ne " | ${Lightgray}$count_ass${NC} ${Lightcyan}ass${NC}"
@@ -761,10 +762,10 @@ function control_translate() {
 		filebasename "$subtitle"
 		if Translate "$subtitle" ;then
 			echo "$subtitle" >> "$autosubcomp"
-			num_check_COMP+=1
+			((num_check_COMP+=1))
 		else
 			echo "$subtitle" >> "$autosubfail"
-			num_check_FAIL+=1
+			((num_check_FAIL+=1))
 		fi
 	done
 
