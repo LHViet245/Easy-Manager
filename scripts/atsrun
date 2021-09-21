@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-Version_atsrun="2.0.9"
+Version_atsrun="2.1.0"
 
 # Get shared function
 ! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
@@ -618,10 +618,12 @@ function CheckVideoDone() {
 function CreateListFile() {
 	local video
 	while IFS= read -r video ;do
-		if [[ -f $video ]] && CheckVideoDone || { [[ -f $video ]] && [[ "$skipFile" == "yes" ]]; } ;then
+		AutoRenameVideo "$video"
+		filebasename "$video"
+		if [[ -f "$video" ]] && CheckVideoDone || { [[ -f "$video" ]] && [[ "$skipFile" == "yes" ]]; } ;then
 			list_video+=("$video")
-		elif [[ -f $video ]] && ! CheckVideoDone ;then
-			echo "$(basename "$video")" >> "$cptodriveDONE"
+		elif [[ -f "$video" ]] && ! CheckVideoDone ;then
+			echo "$filename" >> "$cptodriveDONE"
 			num_check_DONE+=1
 		fi
 	done < <(find "$1" -maxdepth 1 -type f \( -iname \*.mp4 -o -iname \*.mkv -o -iname \*.avi -o -iname \*.ts -o -iname \*.flv -o -iname \*.m4v -o -iname \*.mov -o -iname \*.wmv \))
@@ -645,6 +647,19 @@ function CreateListSubtitle() {
 	[[ $? -ne 0 ]] && ERROR "Create List Video need to handle is FAIL" "$script_name"
 }
 
+function AutoRenameVideo() {
+	local baseName
+	local baseDir
+	baseName="$(basename "$1")"
+	baseDir="$(dirname "$1")"
+	if [[ "$baseName" =~ ^hhd800.com@ ]] ;then
+		mv "$1" "${baseDir}/${baseName##*@}"
+		video="${baseDir}/${baseName##*@}"
+	else
+		return 1
+	fi
+}
+
 function control_autosub() {
     list_video=()
 	local skipAP
@@ -662,15 +677,18 @@ function control_autosub() {
 			if [[ -d "$file" ]];then
 				CreateListFile "$(readlink -f "$file")"
 			else
+				AutoRenameVideo "$(readlink -f "$file")" && file="$video"
+				filebasename "$file"
 				if CheckVideoDone || [[ "$skipFile" == "yes" ]] ;then
 					list_video+=("$(readlink -f "$file")")
 				else
-					echo "$(basename "$file")" >> "$cptodriveDONE"
+					echo "$filename" >> "$cptodriveDONE"
 					num_check_DONE+=1
 				fi
 			fi
 		done
     fi
+	unset video
 	total_process=$((${#list_video[*]} - num_check_DONE))
 	[[ $total_process -eq 0 ]] && show_messenger "Not found video. Check again !" "$script_name" && exit
 	echo -ne "\n${Green}TOTAL:${NC} ${Lightgray}$total_process${NC} ${Purple}Video${NC}\n"
@@ -714,10 +732,11 @@ function control_autosub() {
 }
 
 function control_translate() {
-	local sub
+	
 	if [[ $# -eq 0 ]] ;then
 		CreateListSubtitle "$PWD"
 	else
+		local sub
 		for sub in "$@" ;do
 			if [[ -d "$sub" ]] ;then
 				CreateListSubtitle "$(readlink -f "$sub")"
