@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-Version_atsrun="2.0.8"
+Version_atsrun="2.0.9"
 
 # Get shared function
 ! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
@@ -590,8 +590,8 @@ echo
 	--format $F \
 	--yes
 	sleep 0.5
-	if ! mv "$filepath/$name.$$S_code.$DTS_code.$F" "$filepath/$name.$F" 2>/dev/null ;then
-	    ERROR "FAIL rename subtitle name" "$script_name"
+	if ! mv "$filepath/$name.$S_code.$DTS_code.$F" "$filepath/$name.$F" 2>/dev/null ;then
+	    ERROR "FAIL rename subtitle" "$script_name"
 	else
 	    rm "$filepath/$name.$S_code.$F" 2>/dev/null
 	fi
