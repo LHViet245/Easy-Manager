@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-version_sharedFN="1.7"
+version_sharedFN="1.8"
 
 source_script="$HOME/.auto-manager-server"
 script_dir_sharedfn="$(which SharedFunc)"
@@ -160,17 +160,26 @@ function update_version() {
 }
 
 function run_update() {
-    curl -s -o "$1" "$2"
-    chmod +x "$1"
-    show_messenger "Update $script_name COMPLETE. Version: $new_version" "$script_name"
+    if [[ -n "$1" ]] && [[ -n "$2" ]] ;then
+        if ! curl -s -o "$1" "$2" && chmod +x "$1" ;then
+            return 1
+        else
+            show_messenger "Update $script_name COMPLETE. Version: $new_version" "$script_name"
+        fi         
+    else
+        ERROR "FAIL to update script" "$script_name"
+    fi
 }
 
 function update_sharedFn() {
     local new_version_Fn
     new_version_Fn="$(curl -s "https://raw.githubusercontent.com/LHViet245/Easy-Manager/main/scripts/SharedFunc" | awk 'FNR==2' | awk -F= '{print $NF}' | tr -d ' "' 2>/dev/null)"
-    if testvercomp "$new_version_Fn" "$version_sharedFN" ">";then
+    testvercomp "$new_version_Fn" "$version_sharedFN" ">" && isNeedUpdate='yes'
+    if [[ "${isNeedUpdate}" == "yes" ]];then
         curl -s -o "$script_dir_sharedfn" "https://raw.githubusercontent.com/LHViet245/Easy-Manager/main/scripts/SharedFunc"
         chmod +x "$script_dir_sharedfn"
         show_messenger "Update $(basename "$script_dir_sharedfn") COMPLETE. Version: $new_version" "$script_name"
+    else
+        return 1
     fi
 }

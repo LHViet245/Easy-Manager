@@ -996,10 +996,10 @@ read -r -n 1 -s choice;
 		;;
 
 		6 ) # Update Version
-			cp "$0" "$0.old"
+			cp "$0" "$0.old" || show_messenger "Backup script atsrun FAIL" "$script_name"
 			if [[ "$update" == "yes" ]] ;then
-				run_update "$0" "$git_dir_atsrun"
-				update_sharedFn
+				! run_update "$0" "$git_dir_atsrun" && ERROR "FAIL to update script" "$script_name"
+				! update_sharedFn && show_messenger "Shared Function is Lasted." "$script_name"
 				echo -e "${Green}Please run script again${NC}"
 			else
 				echo -e "${Cyan}$script_name}{NC} ${Green}Current version:${NC} ${Cyan}$Version_atsrun${NC} ${Green}is lasted. No need Update${NC}"
@@ -1027,7 +1027,6 @@ read -r -n 1 -s choice;
 	esac
 
 }
-
 
 ###############################################################################################
 ######################################## RUNNING SCRIPT #######################################
