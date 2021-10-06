@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-Version_atsrun="2.1.1"
+Version_atsrun="2.1.2"
 
 # Get shared function
 ! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
@@ -661,14 +661,21 @@ function AutoRenameVideo() {
 }
 
 function control_autosub() {
+	clear
     list_video=()
-	local skipAP
 	first="yes" # run command only 1 in loop
-	echo -e "Skip Audio Process? No -ap (y/n)"
-	ask_user && skipAP="yes" && show_messenger "No Audio Process." "$script_name"
-	echo -e "Ignore previously processed video? (y/n)"
-	ask_user && skipFile="yes" && show_messenger "Ignore processed video." "$script_name"
-
+	if [[ "${Audio_Process}" == "no" ]] ;then
+		echo -e "${Lightgray}Skip Audio Process? (y/n)${NC}"
+		ask_user && Audio_Process='yes' && show_messenger "No Audio Process." "$script_name"
+	fi
+	if [[ "${Ignore_Processed}" == "no" ]] ;then
+		echo -e "${Lightgray}Ignore previously processed video? (y/n)${NC}"
+		ask_user && Ignore_Processed='yes' && show_messenger "Ignore processed video." "$script_name"
+	fi
+	if [[ "${Auto_Translate}" == "no" ]] ;then
+		echo -e "${Lightgray}Auto Trans;ate Subtitle? (y/n)${NC}"
+		ask_user && Auto_Translate='yes' && show_messenger "Auto Translate Subtitle" "$script_name"
+	fi
     if [[ $# -eq 0 ]] ;then
 		CreateListFile "$PWD"
     else
@@ -679,7 +686,7 @@ function control_autosub() {
 			else
 				AutoRenameVideo "$(readlink -f "$file")" && file="$video"
 				filebasename "$file"
-				if CheckVideoDone || [[ "$skipFile" == "yes" ]] ;then
+				if CheckVideoDone || [[ "${Ignore_Processed}" == "yes" ]] ;then
 					list_video+=("$(readlink -f "$file")")
 				else
 					echo "$filename" >> "$cptodriveDONE"
@@ -696,19 +703,21 @@ function control_autosub() {
 	for file in "${list_video[@]}" ;do
 		((num_process+=1))
 		filebasename "$file"
-		if [[ "$skipAP" == "yes" ]] ;then
+		if [[ "${Audio_Process}" == "yes" ]] ;then
 			autosub-without-ap "$file"
 		else
 			autosub-with-ap "$file" || autosub-without-ap "$file"
 		fi
 		[[ $? -ne 0 ]] && ERROR "[$filename] autosub processing FAIL !" "$script_name"
-		if [ -f "$filepath/$name.$S_code.$F" ] 2>/dev/null;then
-				Translate "$filepath/$name.$S_code.$F"
-		else
-				WARNING "[$filename] File subtitle "$name.$S_code.$F" not Exist !" "$script_name"
-				false
+		if [[ "${Auto_Translate}" == "yes" ]] ;then
+			if [ -f "$filepath/$name.$S_code.$F" ] 2>/dev/null;then
+					Translate "$filepath/$name.$S_code.$F"
+			else
+					WARNING "[$filename] File subtitle "$name.$S_code.$F" not Exist !" "$script_name"
+					false
+			fi
 		fi
-		if [[ $? -ne 0 ]] && [[ ! -f "$filepath/$name.$F" ]] ;then
+		if [[ $? -ne 0 ]] || [[ ! -f "$filepath/$name.$F" ]] || [[ "$Auto_Translate" == "yes" ]] ;then
 			WARNING "[$filename] Translate Subtitle [$name.$S_code.$F] Processing Fail" "$script_name"
 			echo "$filename" >> "$autosubfail"
 			((num_check_FAIL+=1))
@@ -732,7 +741,7 @@ function control_autosub() {
 }
 
 function control_translate() {
-	
+	clear
 	if [[ $# -eq 0 ]] ;then
 		CreateListSubtitle "$PWD"
 	else
@@ -790,7 +799,7 @@ function CheckFile() {
 				first="stop" # Stop here
 			fi
 		else
-			echo -e "${Green}"$list"${NC}"
+			echo -e "${Green}$list${NC}"
 		fi
 	done < <(tail -n $((num_check_COMP + 2)) "$autosubcomp") 2>/dev/null
 	fi
@@ -874,6 +883,7 @@ function editCurrentConfig() {
 }
 
 function menuSetting() {
+	clear
 	local chose
 	option=("Edit Current Config" "Create New Config" "Choose Another Config")
 	if [[ "$Default_Run" == "yes" ]] ;then
@@ -924,13 +934,14 @@ function menuSetting() {
 }
 
 function menu_autosub() {
-echo -e "                                      Loaded              : $loaded_config_name"
-echo -e "   ***************************        Speech Language     : $S_name"
-echo -e "   * Autosub Translate Video *        Translate Language  : $DTS_name"
-echo -e "   ***************************        Deafault Run        : $Default_Run"
-echo -e "         Version $Version_atsrun                Audio Process       : $Audio_Process"
-echo -e "                                      Ignore Processed    : $Ignore_Processed"
-echo -e "                                      Auto Translate      : $Auto_Translate"
+clear
+echo -e "${Orange}                                      ${NC}${Lightcyan}Loaded              :${NC} ${BWhite}$loaded_config_name${NC}"
+echo -e "${Orange}   ***************************        ${NC}${Lightcyan}Speech Language     :${NC} ${BWhite}$S_name${NC}"
+echo -e "${Orange}   * Autosub Translate Video *        ${NC}${Lightcyan}Translate Language  :${NC} ${BWhite}$DTS_name${NC}"
+echo -e "${Orange}   ***************************        ${NC}${Lightcyan}Deafault Run        :${NC} ${BWhite}$Default_Run${NC}"
+echo -e "${Orange}         Version $Version_atsrun      ${NC}${Lightcyan}          Audio Process       :${NC} ${BWhite}$Audio_Process${NC}"
+echo -e "${Orange}                                      ${NC}${Lightcyan}Ignore Processed    :${NC} ${BWhite}$Ignore_Processed${NC}"
+echo -e "${Orange}                                      ${NC}${Lightcyan}Auto Translate      :${NC} ${BWhite}$Auto_Translate${NC}"
 
 
 echo -e "\n${BWhite}Main Menu: What would you like to do?${NC}"
@@ -1012,6 +1023,7 @@ read -r -n 1 -s choice;
 # if [[ ! -f "$source_path/Speech_LG.txt" ]] || [[ ! -f "$source_path/SRC_LG.txt" ]] ;then
 # 	ERROR "Cannot get source language! File not found"
 # fi
+clear
 which autosub >/dev/null || ERROR "Autosub is not installed. Please make sure it's already installed." "$script_name"
 
 if [[ "$(find "$dir_config" -maxdepth 1 -type f -name '*.config' | wc -c)" -eq 0 ]] ;then
@@ -1025,4 +1037,3 @@ menu_autosub "$@"
 
 echo -e "\n${Lightgray}DONE ALL${NC}"
 echo -e "${Lightgray}THANK YOU FOR USING!${NC}"
-
