@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-version_sharedFN="1.5"
+version_sharedFN="1.6"
 
 source_script="$HOME/.auto-manager-server"
 script_dir_sharedfn="$(which SharedFunc)"
@@ -155,8 +155,8 @@ function testvercomp() {
 
 # Check new version
 function update_version() {
-    new_version="$(curl -s "$2" | awk 'FNR==2' | awk -F= '{print $NF}' | tr -d ' "' 2>/dev/null)" 2>/dev/null
-    testvercomp "$new_version" "$1" ">" 2>/dev/null
+    new_version="$(curl -s "$2" | awk 'FNR==2' | awk -F= '{print $NF}' | tr -d ' "' 2>/dev/null)"
+    testvercomp "$new_version" "$1" ">"
 }
 
 function run_update() {
@@ -168,7 +168,7 @@ function run_update() {
 function update_sharedFn() {
     local new_version_Fn
     new_version_Fn="$(curl -s "https://raw.githubusercontent.com/LHViet245/Easy-Manager/main/scripts/SharedFunc" | awk 'FNR==2' | awk -F= '{print $NF}' | tr -d ' "' 2>/dev/null)"
-    if testvercomp "$new_version_Fn" "$version_sharedFN" ">" 2>/dev/null;then
+    if testvercomp "$new_version_Fn" "$version_sharedFN" ">";then
         curl -s -o "$script_dir_sharedfn" "https://raw.githubusercontent.com/LHViet245/Easy-Manager/main/scripts/SharedFunc"
         chmod +x "$script_dir_sharedfn"
         show_messenger "Update $(basename "$script_dir_sharedfn") COMPLETE. Version: $new_version" "$script_name"
