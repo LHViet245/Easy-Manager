@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-Version_atsrun="2.1.5"
+Version_atsrun="2.1.6"
 
 # Get shared function
 ! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
