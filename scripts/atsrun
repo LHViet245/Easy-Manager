@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-Version_atsrun="2.1.8"
+Version_atsrun="2.1.9"
 
 # Get shared function
 ! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
@@ -32,7 +32,7 @@ function get_index() {
 	local i
 	local -n Array="$2"
 	[[ $# -gt 2 ]] && ERROR "Get Index error caused by improper function usage!" "$script_name"
-	[[ ${#Array[@]} -lt 1 ]] && WARNING "Array empty or not exist!" "$script_name" && WARNING "Array empty or not exist!"
+	[[ ${#Array[@]} -lt 1 ]] && WARNING "Array empty or not exist!" "$script_name"
 	for ((i = 0; i <= ${#Array[*]}; i++)); do
 		if [[ "${Array[i]}" == *"$1"* ]]; then
 			[[ "$first" == "yes" ]] && echo "$i" && first="stop"
@@ -356,7 +356,7 @@ function Setting() {
 	;;
 
 	noask)
-		echo -e "\n${Lightgray}Ask for options every time you run: ${NC}"
+		echo -e "\n${Lightgray}Don't ask for optine every time: ${NC}"
 		select noAsk in "yes" "no" ;do show_messenger "Set No Asking: $noAsk" "$script_name" && break ;done
 	;;
 
@@ -1012,10 +1012,8 @@ read -r -n 1 -s choice;
 		;;
 
 		0 )	# Break Menu
-			echo -e "\n${LIGHTCYAN}DONE ALL${NC}"
-			echo -e "${LIGHTCYAN}THANK YOU FOR USING${NC}"
 			clear
-			return
+			return 0
 		;;
 
 		* )	# Not Valid Choice
