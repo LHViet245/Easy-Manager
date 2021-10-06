@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-Version_atsrun="2.1.2"
+Version_atsrun="2.1.3"
 
 # Get shared function
 ! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
@@ -355,11 +355,17 @@ function Setting() {
 		select Auto_Translate in "yes" "no" ;do show_messenger "Set Auto Translate: $Auto_Translate" "$script_name" && break ;done
 	;;
 
+	noask)
+		echo -e "\n${Lightgray}Ask for options every time you run: ${NC}"
+		select noAsk in "yes" "no" ;do show_messenger "Set No Asking: $noAsk" "$script_name" && break ;done
+	;;
+
 	* )
 		Setting "dfRun"
 		Setting "audio"
 		Setting "ignore"
 		Setting "translate"
+		Setting "noask"
 	;;
 esac
 }
@@ -448,6 +454,7 @@ Auto Translate          :   ${Auto_Translate}" > "$dir_config/$name_config"
 			Audio_Process="$(grep -w '^Audio Process' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
 			Ignore_Processed="$(grep -w '^Ignore Processed Video' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
 			Auto_Translate="$(grep -w '^Auto Translate' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
+			noAsk="$(grep -w '^No Ask Option' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
 		;;
 
 		handle_config )
@@ -664,17 +671,19 @@ function control_autosub() {
 	clear
     list_video=()
 	first="yes" # run command only 1 in loop
-	if [[ "${Audio_Process}" == "no" ]] ;then
-		echo -e "${Lightgray}Skip Audio Process? (y/n)${NC}"
-		ask_user && Audio_Process='yes' && show_messenger "No Audio Process." "$script_name"
-	fi
-	if [[ "${Ignore_Processed}" == "no" ]] ;then
-		echo -e "${Lightgray}Ignore previously processed video? (y/n)${NC}"
-		ask_user && Ignore_Processed='yes' && show_messenger "Ignore processed video." "$script_name"
-	fi
-	if [[ "${Auto_Translate}" == "no" ]] ;then
-		echo -e "${Lightgray}Auto Trans;ate Subtitle? (y/n)${NC}"
-		ask_user && Auto_Translate='yes' && show_messenger "Auto Translate Subtitle" "$script_name"
+	if [[ "${noAsk}" == "no" ]] ;then
+		if [[ "${Audio_Process}" == "no" ]] ;then
+			echo -e "${Lightgray}Skip Audio Process? (y/n)${NC}"
+			ask_user && Audio_Process='yes' && show_messenger "No Audio Process." "$script_name"
+		fi
+		if [[ "${Ignore_Processed}" == "no" ]] ;then
+			echo -e "${Lightgray}Ignore previously processed video? (y/n)${NC}"
+			ask_user && Ignore_Processed='yes' && show_messenger "Ignore processed video." "$script_name"
+		fi
+		if [[ "${Auto_Translate}" == "no" ]] ;then
+			echo -e "${Lightgray}Auto Trans;ate Subtitle? (y/n)${NC}"
+			ask_user && Auto_Translate='yes' && show_messenger "Auto Translate Subtitle" "$script_name"
+		fi
 	fi
     if [[ $# -eq 0 ]] ;then
 		CreateListFile "$PWD"
@@ -850,7 +859,6 @@ function editCurrentConfig() {
 				sed -i '/^\(\s\|#\)*Minimum Region Size/ c\Minimum Region Size             :   '$mnrs'' "$loaded_config"
 				sed -i '/^\(\s\|#\)*Maximum Region Size/ c\Maximum Region Size             :   '$mxrs'' "$loaded_config"
 				sed -i '/^\(\s\|#\)*Max Continuous Silent/ c\Max Continuous Silent             :   '$mxcs'' "$loaded_config"
-				sed -i '/^\(\s\|#\)*Subtitles Format/ c\Subtitles Format             :   '$F'' "$loaded_config"
 				clear
 				show_messenger "Setting Config COMPLETED" "$script_name"
 				echo
@@ -863,6 +871,8 @@ function editCurrentConfig() {
 				sed -i '/^\(\s\|#\)*Audio Process/ c\Audio Process             :   '$Audio_Process'' "$loaded_config"
 				sed -i '/^\(\s\|#\)*Ignore Processed Video/ c\Ignore Processed Video             :   '$Ignore_Processed'' "$loaded_config"
 				sed -i '/^\(\s\|#\)*Auto Translate/ c\Auto Translate             :   '$Translate'' "$loaded_config"
+				sed -i '/^\(\s\|#\)*Auto Translate/ c\Auto Translate             :   '$Translate'' "$loaded_config"
+				sed -i '/^\(\s\|#\)*No Ask Option/ c\No Ask Option           :   '$noAsk'' "$loaded_config"
 				clear
 				show_messenger "Setting Option COMPLETED" "$script_name"
 				echo
@@ -889,7 +899,7 @@ function menuSetting() {
 	if [[ "$Default_Run" == "yes" ]] ;then
 		option+=("Reset Default Run In Current Config")
 	fi
-	echo -e "Chose One: "
+	echo -e "${Lightgray}Chose One: ${NC}"
 	select chose in "${option[@]}" ;do
 		case $chose in
 			"${option[0]}" )
@@ -936,13 +946,13 @@ function menuSetting() {
 function menu_autosub() {
 clear
 echo -e "${Orange}                                      ${NC}${Lightcyan}Loaded              :${NC} ${BWhite}$loaded_config_name${NC}"
-echo -e "${Orange}   ***************************        ${NC}${Lightcyan}Speech Language     :${NC} ${BWhite}$S_name${NC}"
-echo -e "${Orange}   * Autosub Translate Video *        ${NC}${Lightcyan}Translate Language  :${NC} ${BWhite}$DTS_name${NC}"
-echo -e "${Orange}   ***************************        ${NC}${Lightcyan}Deafault Run        :${NC} ${BWhite}$Default_Run${NC}"
-echo -e "${Orange}         Version $Version_atsrun      ${NC}${Lightcyan}          Audio Process       :${NC} ${BWhite}$Audio_Process${NC}"
-echo -e "${Orange}                                      ${NC}${Lightcyan}Ignore Processed    :${NC} ${BWhite}$Ignore_Processed${NC}"
+echo -e "${Orange}                                      ${NC}${Lightcyan}Speech Language     :${NC} ${BWhite}$S_name${NC}"
+echo -e "${Orange}   ***************************        ${NC}${Lightcyan}Translate Language  :${NC} ${BWhite}$DTS_name${NC}"
+echo -e "${Orange}   * Autosub Translate Video *        ${NC}${Lightcyan}Deafault Run        :${NC} ${BWhite}$Default_Run${NC}"
+echo -e "${Orange}   ***************************        ${NC}${Lightcyan}Audio Process       :${NC} ${BWhite}$Audio_Process${NC}"
+echo -e "${Orange}         Version $Version_atsrun                ${NC}${Lightcyan}Ignore Processed    :${NC} ${BWhite}$Ignore_Processed${NC}"
 echo -e "${Orange}                                      ${NC}${Lightcyan}Auto Translate      :${NC} ${BWhite}$Auto_Translate${NC}"
-
+echo -e "${Orange}                                      ${NC}${Lightcyan}No Ask Option       :${NC} ${BWhite}$noAsk${NC}"
 
 echo -e "\n${BWhite}Main Menu: What would you like to do?${NC}"
 echo -e "${BWhite}${NC}"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-version_sharedFN="1.4"
+version_sharedFN="1.5"
 
 source_script="$HOME/.auto-manager-server"
 script_dir_sharedfn="$(which SharedFunc)"
@@ -105,12 +105,12 @@ function pip_install() {
 function vercomp() {
 	local ver1
 	local ver2
-    if [[ $1 == $2 ]]
+    if [[ "$1" == "$2" ]]
     then
         return 0
     fi
     local IFS=.
-    local i ver1=($1) ver2=($2)
+    local i ver1=("$1") ver2=("$2")
     # fill empty fields in ver1 with zeros
     for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
     do
@@ -137,13 +137,13 @@ function vercomp() {
 
 function testvercomp() {
 	local op
-    vercomp $1 $2
+    vercomp "$1" "$2"
     case $? in
         0) op='=';;
         1) op='>';;
         2) op='<';;
     esac
-    if [[ $op != $3 ]]
+    if [[ $op != "$3" ]]
     then
         #echo "FAIL: Expected '$3', Actual '$op', Arg1 '$1', Arg2 '$2'"
 		return 1
@@ -155,8 +155,8 @@ function testvercomp() {
 
 # Check new version
 function update_version() {
-    new_version="$(curl -s "$2" | awk 'FNR==2' | awk -F= '{print $NF}' | tr -d ' "' 2>/dev/null)"
-    testvercomp "$new_version" "$1" ">" 
+    new_version="$(curl -s "$2" | awk 'FNR==2' | awk -F= '{print $NF}' | tr -d ' "' 2>/dev/null)" 2>/dev/null
+    testvercomp "$new_version" "$1" ">" 2>/dev/null
 }
 
 function run_update() {
@@ -168,7 +168,7 @@ function run_update() {
 function update_sharedFn() {
     local new_version_Fn
     new_version_Fn="$(curl -s "https://raw.githubusercontent.com/LHViet245/Easy-Manager/main/scripts/SharedFunc" | awk 'FNR==2' | awk -F= '{print $NF}' | tr -d ' "' 2>/dev/null)"
-    if testvercomp "$new_version_Fn" "$version_sharedFN" ">" ;then
+    if testvercomp "$new_version_Fn" "$version_sharedFN" ">" 2>/dev/null;then
         curl -s -o "$script_dir_sharedfn" "https://raw.githubusercontent.com/LHViet245/Easy-Manager/main/scripts/SharedFunc"
         chmod +x "$script_dir_sharedfn"
         show_messenger "Update $(basename "$script_dir_sharedfn") COMPLETE. Version: $new_version" "$script_name"
