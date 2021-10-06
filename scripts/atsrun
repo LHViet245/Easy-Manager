@@ -557,12 +557,13 @@ function autosub-with-ap () {
     --format $F \
 	--yes \
 	--audio-process y
+	echo
 }
 
 # Run autosub without Audio Processing
 # $1 item want to autosub
 function autosub-without-ap () {
-	show_messenger "[$filename] Autosub Without Audio Processing (no -ap)\n" "$script_name"
+	show_messenger "[$filename] Autosub Without Audio Processing (no -ap)" "$script_name"
 	ShowProcess
 	echo
 	autosub \

@@ -1,0 +1,695 @@
+#! /bin/bash
+#############################################################################################
+######################################## CONFIG #############################################
+first="yes" # for the command to run only once
+root_folder=
+drive_name=
+script_name="$(basename "$0")"
+source_script="$HOME/.auto-manager-server/$(echo "$script_name" | tr -d '.')"
+cptodriveCOMP="$source_script"/"$(echo "$script_name" | tr -d '.')"_COMP.txt
+cptodriveFAIL="$source_script"/"$script_name"_FAIL.txt
+cptodriveDONE="$source_script"/"$script_name"_DONE.txt
+config_file="$source_script/config"
+log_rclone="$source_script/log"
+
+[[ ! -d "$source_script" ]] && mkdir -p "$source_script"
+[[ ! -d "$config_file" ]] && mkdir -p "$config_file"
+[[ ! -d "$log_rclone" ]] && mkdir -p "$log_rclone"
+
+#############################################################################################
+####################################### FUNCTION ############################################
+
+# COLOR TEXT FORMAT
+function ERROR() { # Color Red
+	echo -e "${Red}$*${NC}"
+}
+
+# Version Script
+function version() {
+	version="2.2.1"
+}
+
+# Function get Filename
+function ask_user() {
+local answer
+while true
+  do
+    read -r -n 1 answer
+    case $answer in [Yy]* ) echo "" && return 0 ;;
+                    [Nn]* ) echo "" && return 1 ;;
+                        * ) ERROR "\nEnter y or n";;
+    esac
+  done
+}
+
+function filename() {
+	filename=$(basename "$1")
+    #extension=${filename##*.}
+    #name=${filename%.*}
+return
+}
+
+#Function Rclone
+function copytodrive() {
+local subfolder
+num_check=$((num_check+1)) # count file process
+# Check file is Dicrectory or file
+if [[ -d "$1" ]] 2>/dev/null ;then
+	# echo -e "\n${Yellow}[$filename]${NC} ${Blue}is a directory${NC}"
+	subfolder="$filename"
+else
+	subfolder=
+fi
+echo -ne "\n${Lightgreen}Start copying file${NC} ${Yellow}[$filename]${NC} ${Lightgreen}to Remote${NC} ${Yellow}[$drive_name:$root_folder]${NC} - "
+echo -ne "${Purple}[P]${NC} ${BWhite}$num_check/$((TotalFile-num_check_done))${NC}"
+[[ $num_check_comp -ne 0 ]] && echo -ne " | ${BGreen}[C]${NC} ${BWhite}$num_check_comp/$((TotalFile-num_check_done))${NC}"
+[[ $num_check_done -ne 0 ]] && echo -ne " | ${Lightyellow}[D]${NC} ${BWhite}$num_check_done/$TotalFile${NC}"
+[[ $num_check_fail -ne 0 ]] && echo -ne " | ${Red}[F]${NC} ${BWhite}$num_check_fail/$TotalFile${NC}"
+echo
+# Run Rclone
+if ! rclone copy --progress --progress-terminal-title "$1" "$drive_name:$root_folder/$subfolder" --fast-list --create-empty-src-dirs --ignore-existing --log-file="$log_rclone/log_rclone_$drive_name-$(date '+%d%m%Y').txt" --log-level DEBUG;then
+	echo "$filename" >> "$cptodriveFAIL"
+	num_check_fail=$((num_check_fail+1)) # count file fail
+else
+	[[ "$first" == "yes" ]] && echo "---------------------------" >> "$cptodriveCOMP"
+	echo "$filename" >> "$cptodriveCOMP"
+	num_check_comp=$((num_check_comp+1)) # Count file comple
+	first="no" # for the command to run only once in loop
+fi
+}
+
+function copytodriveAUTO() {
+num_check=0
+num_check_comp=0
+num_check_fail=0
+num_check_done=0
+echo -e "${Lightgray}Automatically create folders sorted by date? (y/n)${NC}"
+ask_user && root_folder="$root_folder/$(date '+%d-%m-%Y')"
+echo -e "${Lightgray}Copy all files including copied files (y/n)${NC}"
+ask_user && local skip_file="yes"
+clear
+if [[ $# -eq 0 ]] ;then
+	FILECOUNT="$(find "$PWD"/* -maxdepth 0 -type f -printf x | wc -c)"
+	DIRCOUNT="$(find "$PWD"/* -maxdepth 0 -type d -printf x | wc -c)"
+	TotalFile="$(find "$PWD"/* -maxdepth 0 -printf x | wc -c)"
+	echo -ne "\n${BGreen}CHECKED:${NC}  "
+	if [[ $FILECOUNT -ne 0 ]] ;then
+		echo -ne "${Lightgray}$FILECOUNT${NC} ${Purple}File${NC} | "
+	fi
+	if [[ $DIRCOUNT -ne 0 ]] ;then
+		echo -ne "${Lightgray}$DIRCOUNT${NC} ${Purple}Directory${NC} | "
+	fi
+	echo -e "${BGreen}TOTAL:${NC} ${Lightgray}$TotalFile${NC}"
+	for file in * ;do
+		filename "$file"
+		if [[ -e "$file" ]] 2>/dev/null;then
+			#text=$(grep -wF "$filename" "$cptodriveCOMP")
+			if { [[ $(grep -wFc "$filename" "$cptodriveCOMP") -ne 0 ]] && [[ "$skip_file" != "yes" ]];} 2>/dev/null ;then
+				echo "$filename" >> "$cptodriveDONE"
+				num_check_done=$((num_check_done+1))
+			else
+				# echo -e "\n${Lightblue}Confirm${NC} ${Yellow}[$filename]${NC} ${Lightblue}has not been copied to Remote${NC} ${Yellow}[$drive_name]${NC}"
+				copytodrive "$file"
+			fi
+		fi
+	done
+else
+	for file in "$@" ;do
+		if [[ -d $file ]] ;then
+			DIRCOUNT=$((DIRCOUNT+1))
+		else
+			FILECOUNT=$((FILECOUNT+1))
+		fi
+			TotalFile=$#
+	done
+	echo -ne "\n${BGreen}CHECKED:${NC} "
+	[[ $FILECOUNT -ne 0 ]] && echo -ne "${Lightgray}$FILECOUNT${NC} ${Purple}File${NC} | "
+	[[ $DIRCOUNT -ne 0 ]] && echo -ne "${Lightgray}$DIRCOUNT${NC} ${Purple}Directory${NC} | "
+	echo -e "${BGreen}TOTAL:${NC} ${Lightgray}$TotalFile${NC}"
+	for file in "$@" ;do
+		filename "$file"
+		if [ -e "$file" ] ;then
+			#text="$(grep -wF "$filename" "$cptodriveCOMP")"
+			if { [[ $(grep -wFc "$filename" "$cptodriveCOMP") -ne 0 ]] && [[ "$skip_file" != "yes" ]];} 2>/dev/null ;then
+				#echo -e "${Yellow}[$filename]${NC} ${Green}Da Copy Sang Drive${NC} ${Yellow}[vietle]${NC}"
+				echo "$filename" >> "$cptodriveDONE"
+				num_check_done=$((num_check_done+1))
+			else
+				# echo -e "${Lightblue}Confirm${NC} ${Yellow}[$filename]${NC} ${Lightblue}has not been copied to Remote${NC} ${Yellow}[$drive_name]${NC}\n"
+				copytodrive "$file"
+			fi
+		else 
+			echo -e "\n${Red}Does not exist${NC} ${Yellow}[$filename]${NC}"
+			ERROR "Please Check Again\n"
+			echo "$filename does not exist" >> "$cptodriveFAIL"
+		fi
+	done
+fi
+# List File Done or Completed or FAIL
+checkfile "$@"
+}
+
+function config_drive_name_remote() {
+local num=1
+local choice
+local remote
+
+echo -e "\n${Orange}List remote:${NC}"
+while IFS= read -r remote ;do
+    local remote[$num]="$remote"
+    if [[ $num -lt 10 ]]; then
+			echo -e "\t\t ${BWhite}$num.${NC} ${Lightblue}${remote[$num]}${NC}"
+	else
+			echo -e "\t\t${BWhite}$num.${NC} ${Lightblue}${remote[$num]}${NC}"
+	fi
+    ((num++))
+done < <(rclone listremotes | awk -F: '{print $1}')
+echo -e "${Lightgray}Select the remote you want to use: ${NC}"
+read -r choice
+if [[ $choice -lt $num ]] && [[ $choice -ge 1 ]] && [[ "$choice" =~ ^[0-9]+$ ]] ;then
+    num=$choice
+    drive_name="${remote[$num]}"
+    echo -e "${Yellow}[$drive_name]${NC} ${Lightblue}selected successfully${NC}\n"
+else
+clear
+    ERROR "Invalid choice"
+    ERROR "Sorry! integers only or wrong number\nTRY AGAIN!!\n"
+    config_drive_name_remote
+fi
+}
+
+function config_root_folder() {
+local foldersub
+local foldersub_new
+local num
+local previous_directory
+local skip_loop="no"
+while true; do
+	if [[ "$skip_loop" != "yes" ]] ;then
+		num=1
+		while IFS= read -r foldersub; do
+			foldersub[$num]="$foldersub"
+			if [[ $num -lt 10 ]]; then
+				echo -e "\t\t ${Lightgray}$num.${NC} ${Lightblue}${foldersub[$num]}${NC}"
+			else
+				echo -e "\t\t${Lightgray}$num.${NC} ${Lightblue}${foldersub[$num]}${NC}"
+			fi
+			((num++))
+		done < <(rclone lsd "$drive_name:$root_folder" | awk -F '-1 ' '{print $NF}')
+	fi
+	if [[ "$num" -lt 2 ]] && [[ -z "$foldersub" ]] || [[ "$skip_loop" == "yes" ]];then echo -e "${Purple}No directory found${NC}" ;fi 
+	
+	echo -e "\n${Orange}CURRENT DICRECROTY:${NC}  ${Cyan}'$drive_name:$root_folder'${NC}"
+	echo -e "${Lightgray}Select Folder or type new folder in here. You can use command behind${NC}"
+	#echo -e "--showfile | --drive-name"
+	echo -e "${Lightgray}Type 2 dot${NC} ${Cyan}'..'${NC} ${Lightgray}to go previous folder |${NC} ${UWhite}Enter blank to finish.${NC}"
+	read -r foldersub_new
+	[[ -z "$foldersub_new" ]] && echo -e "${BGreen}SUCCESS get root folder${NC} ${Yellow}'$drive_name:$root_folder'${NC}\n" && return 0
+	if { [[ "$foldersub_new" -lt $num ]] && [[ "$foldersub_new" -ge 1 ]] && [[ "$foldersub_new" =~ ^[0-9]+$ ]];} 2>/dev/null; then
+		num=$foldersub_new
+		previous_directory="$root_folder"
+		root_folder="$root_folder/${foldersub[$num]}"
+clear
+		echo -e "${Yellow}[${foldersub[$num]}]${NC} ${Lightblue}selected successfully${NC}\n"
+	elif [[ "$foldersub_new" == ".." ]] ;then
+clear
+		echo -e "${Orange}Go Back${NC}\n" 
+		root_folder="$previous_directory"
+		previous_directory="$(echo "$root_folder" | sed -e's,^\(.*\/\).*,\1,g' | sed 's/.$//')"
+		if ! rclone lsd "$drive_name:$root_folder" > /dev/null 2>&1 ;then
+			skip_loop="yes"
+		else
+			skip_loop="no"
+		fi
+	else
+		if [[ "$skip_loop" != "yes" ]];then
+				if [[ "${foldersub[*]}" =~ (^|[[:space:]])"$foldersub_new"($|[[:space:]]) ]] ;then
+clear
+					echo -e "${Yellow}Directory already exists. Will access this folder${NC}\n"
+					root_folder="$root_folder/$foldersub_new"
+					config_root_folder
+					return
+				fi
+		fi
+clear
+			previous_directory="$root_folder" 
+			root_folder="$root_folder/$foldersub_new"
+			echo -e "${Lightblue}Success create new folder${NC} ${Cyan}'$foldersub_new'${NC}\n"
+			skip_loop="yes"
+	fi
+done
+}
+
+function checkfile() {
+local list
+	## List File Completed
+if [[ -f "$cptodriveCOMP" ]] && [[ $num_check_comp -gt 0 ]] 2>/dev/null ;then
+	echo -e "\n${BGreen}[COMPLETED]${NC}"
+	while IFS= read -r list ;do
+		if [[ "$list" == "---------------------------" ]] ;then
+			if [[ $first == "no" ]] ;then
+				echo -n "$list" ;echo -e "  ${Purple}Total $num_check_comp file${NC} | ${Orange}$(date '+%d-%m-%Y')${NC} | ${Lightgray}$(date '+%H:%M')${NC}"
+				first="stop" # Stop 
+			fi
+		else
+			echo -e "${Green}"$list"${NC}"
+		fi
+	done < <(tail -n $((num_check_comp + 2)) "$cptodriveCOMP") 2>/dev/null
+fi
+	## List File Done
+if [[ -f "$cptodriveDONE" ]] 2>/dev/null ;then
+	echo -e "\n${BYellow}[Done]${NC}"
+	if [ $# -gt 15 ] 2>/dev/null ;then
+		echo -e "${Purple}MORE....${NC}"
+		while IFS= read -r list ;do
+				echo -e "${Yellow}$list${NC}"
+		done < <(tail -n 15 "$cptodriveDONE") 2>/dev/null
+	else
+		while IFS= read -r list ;do
+				echo -e "${Yellow}$list${NC}"
+		done < <(cat "$cptodriveDONE") 2>/dev/null
+	fi
+	rm "$cptodriveDONE" 2>/dev/null
+fi
+	## List File Fail
+if [[ -f "$cptodriveFAIL" ]] 2>/dev/null ;then
+	echo -e "\n${BRed}[FAIL]${NC}"
+	while IFS= read -r list ;do
+			echo -e "${Red}$list${NC}"
+	done < <(cat "$cptodriveFAIL") 2>/dev/null
+	rm "$cptodriveFAIL" 2>/dev/null
+fi
+}
+
+function process_config() {
+case "$1" in
+	create_and_show ) # Create and show config
+			local config_name
+			local config_name1
+			config_name="$drive_name"_"$(echo "$root_folder" | awk -F '/' '{print $NF}')"_"$(date '+%d-%m-%Y')".config
+			echo -e "${Lightgray}By default, the config file will be saved in${NC} ${Cyan}'$config_file/'${NC}"
+			echo -e "${Lightgray}Enter the name you want to give the config file. No need${NC} ${Cyan}'.config'${NC} ${Lightgray}| Default name:${NC} ${Cyan}'$config_name'${NC}"
+			echo -e "${Lightgray}If the config file has the same name as the existing file, it will be overwritten.${NC}"
+			echo -e "${UWhite}Enter blank to set default name${NC}"
+			read -r config_name1
+			[[ $(echo "$config_name1" | awk -F '.' '{print $NF}') != "config" ]] && [[ -n "$config_name1" ]] && config_name="$config_name.config"
+			dir_filecfg="$config_file/$config_name"
+echo -e "======== SCRIPT MADE BY STARFALL ========
+Script name : $(echo "$script_name" | tr -d '.')
+Version : $version
+Created : $(date '+%d-%m-%Y')
+Drive Name : $drive_name
+Root Folder : $root_folder
+=========================================
+Default run : NO" > "$dir_filecfg"
+			echo -e "${Lightgray}Set default this config file for next run? (y/n)${NC}"
+			ask_user && sed -i '/^\(\s\|#\)*Default run/ c\Default run : YES' "$dir_filecfg"
+			head -n 7 "$dir_filecfg"
+	;;
+
+	read_config ) # Read config file
+			if testvercomp "$(grep -w '^Version' "$dir_filecfg" | awk -F: '{print $NF}' | sed 's/ //g')" "$version" ">" ;then
+				ERROR "The version of the script is old, not suitable for this config file. Please update to the new version!"
+				exit 1
+			else
+				drive_name="$(grep -w '^Drive Name' "$dir_filecfg" | awk -F: '{print $NF}' | sed 's/ //g')"
+				root_folder="$(grep -w '^Root Folder' "$dir_filecfg" | awk -F: '{print $NF}' | sed 's/ //g')"
+			fi
+	;;
+
+	run_config ) # Load config file
+
+			local num_file
+			local file_found
+			local new_config
+			num_file=1
+			echo -e "${Orange}List Config:${NC}\n"
+			while IFS= read -r filecfg ;do
+				if [[ -f "$filecfg" ]] ;then
+					config_name[$num_file]="$(basename "$filecfg")"
+					if [[ $num_file -lt 10 ]]; then
+							echo -e "\t\t ${BWhite}$num_file.${NC} ${Lightblue}${config_name[$num_file]}${NC}"
+					else
+							echo -e "\t\t${BWhite}$num_file.${NC} ${Lightblue}${config_name[$num_file]}${NC}"
+					fi
+				fi
+				((num_file++))
+			done< <(find "$config_file" -type f -name "*.config") 2>/dev/null
+
+			echo -e "\n${Orange}Found${NC} ${Cyan}$(($num_file - 1))${NC} ${Orange}config files${NC}\n"
+			if [[ $(($num_file - 1)) -eq 0 ]] ;then
+				echo -e "${Purple}No config found${NC}"
+				echo -e "${Lightgray}Do you want to search on Remote ? (y/n)${NC}"
+				if ask_user ;then
+					echo -e "\n${Green}Will try searching on remote.${NC}"
+					echo -e "${Lightgray}select the Remote you want to get the config file${NC}"
+					config_drive_name_remote
+					file_found="$(rclone ls "$drive_name:/config/$(echo "$script_name" | tr -d '.')" --include "*.config"  2>/dev/null | grep -c '\.config$')"
+					if [[ $file_found -eq 0 ]] ;then
+						echo -e "${Purple}No config found on remote${NC}"
+						echo -e "${Green}Will create a new config file now${NC}"
+						config_drive_name_remote
+						config_root_folder
+						process_config "create_and_show"
+					else
+						echo -e "\n${Orange}Found${NC} ${Cyan}$file_found${NC} ${Orange}config files on Remote${NC}\n"
+						echo -e "${Lightgray}Will sync now....${NC}"
+						! rclone copy --quiet --progress --progress-terminal-title "$drive_name:/config/$(echo "$script_name" | tr -d '.')" "$config_file" --fast-list --include "*.config" && ERROR "\nSync ERROR! Check again!" && exit 1
+						echo -e "\n${Green}SYNC COMPLETE! Please run again${NC}"
+						exit 0
+					fi
+				fi
+			else
+				echo -e "${Lightgray}Select the config file you want to use.${NC}"
+				echo -e "${Lightgray}Type${NC} ${Cyan}'config'${NC} ${Lightgray}to create a new config file. By default, the config file will be saved in${NC} ${Cyan}'$config_file'${NC}"
+				echo -e "${Lightgray}Type${Nc} ${Cyan}'show [number]'${NC} ${Lightgray}to see config file information. Eg.${NC} ${Cyan}'show 1'${NC}"
+				echo -e "${Lightgray}Type${Nc} ${Cyan}'rm [number]'${NC} ${Lightgray}to delete config file. Eg.${NC} ${Cyan}'rm 1'${NC}"
+				echo -e "${UWhite}Enter blank will automatically load the first config file.${NC}"
+				read -r new_config
+				if { [[ "$new_config" -lt $num_file ]] && [[ "$new_config" -ge 1 ]] && [[ "$new_config" =~ ^[0-9]+$ ]];} 2>/dev/null; then
+					num_file=$new_config
+					dir_filecfg="$config_file/${config_name[$num_file]}"
+					echo -e "${Lightgray}Set default this config file for next run? (y/n)${NC}"
+					ask_user 2>/dev/null && sed -i '/^\(\s\|#\)*Default run/ c\Default run : YES' "$dir_filecfg"
+					process_config "read_config"
+				elif [[ -z "$new_config" ]] ;then
+					num_file=1
+					dir_filecfg="$config_file/${config_name[$num_file]}"
+					echo -e "${Lightgray}Set default this config file for next run? (y/n)${NC}"
+					ask_user 2>/dev/null && sed -i '/^\(\s\|#\)*Default run/ c\Default run : YES' "$dir_filecfg"
+					process_config "read_config"
+				elif [[ "$new_config" == "config" ]] ;then
+clear
+					config_drive_name_remote
+					config_root_folder
+					process_config "create_and_show"
+				elif [[ ${new_config:0:4} == "show" ]] && [[ $(echo "$new_config" | awk '{print $NF}') =~ ^[0-9]+$ ]] && [[ $(echo "$new_config" | awk '{print $NF}') -lt "$num_file" ]];then
+						num_file=$(echo "$new_config" | awk '{print $NF}')
+						dir_filecfg="$config_file/${config_name[$num_file]}"
+						! less -X "$dir_filecfg" && clear && ERROR "File not found! Check Again!" || clear
+						process_config "run_config"
+				elif [[ ${new_config:0:2} == "rm" ]] && [[ $(echo "$new_config" | awk '{print $NF}') =~ ^[0-9]+$ ]] && [[ $(echo "$new_config" | awk '{print $NF}') -lt "$num_file" ]];then
+						num_file=$(echo "$new_config" | awk '{print $NF}')
+						dir_filecfg="$config_file/${config_name[$num_file]}"
+						! rm "$dir_filecfg" && clear && ERROR "File not found! Check Again!" || clear
+						process_config "run_config"
+				else
+clear
+					ERROR "Invalid choice. Please chose again!\n"
+					process_config "run_config"
+				fi
+			fi
+clear
+
+	;;	
+
+	   * ) # Error to run fucntion
+clear
+	   		ERROR "ERROR to process config"
+			exit 1
+	;;
+esac
+}
+
+vercomp () {
+	local ver1
+	local ver2
+    if [[ $1 == $2 ]]
+    then
+        return 0
+    fi
+    local IFS=.
+    local i ver1=($1) ver2=($2)
+    # fill empty fields in ver1 with zeros
+    for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
+    do
+        ver1[i]=0
+    done
+    for ((i=0; i<${#ver1[@]}; i++))
+    do
+        if [[ -z ${ver2[i]} ]]
+        then
+            # fill empty fields in ver2 with zeros
+            ver2[i]=0
+        fi
+        if ((10#${ver1[i]} > 10#${ver2[i]}))
+        then
+            return 1
+        fi
+        if ((10#${ver1[i]} < 10#${ver2[i]}))
+        then
+            return 2
+        fi
+    done
+    return 0
+}
+
+testvercomp () {
+	local op
+    vercomp $1 $2
+    case $? in
+        0) op='=';;
+        1) op='>';;
+        2) op='<';;
+    esac
+    if [[ $op != $3 ]]
+    then
+        #echo "FAIL: Expected '$3', Actual '$op', Arg1 '$1', Arg2 '$2'"
+		return 1
+    else
+        #echo "Pass: '$1 $op $2'"
+		return 0
+    fi
+}
+
+function menuRclone() {
+local choice
+local skip_config
+local new_version
+	# Check new version !
+new_version="$(curl -v --silent https://raw.githubusercontent.com/LHViet245/Script-Auto-Manager/main/scripts/.cptodrive-new 2>&1 | grep -wE 'version="([0-9]{1,}\.)+[0-9]{1,}"' | awk -F '=' '{print $NF}' | tr -d '"')"
+testvercomp "$new_version" "$version" ">" 2>/dev/null && echo -e "\t\t${BPurple}NEW VERSION${NC} ${Bcyan}$new_version${NC} ${BPurple}HAS BEEN ! YOU CAN UPDATE IN MENU${NC}\n"
+
+echo -e "${BGreen}Loaded:${NC} ${Cyan}$(basename "$dir_filecfg")${NC}\t${BGreen}Created:${NC}${Cyan}$(grep -w '^Created' "$dir_filecfg" | awk -F: '{print $NF}')${NC}\t${BGreen}Config version:${NC}${Cyan}$(grep -w '^Version' "$dir_filecfg" | awk -F: '{print $NF}')${NC}\t${BGreen}Default:${NC}${Cyan}$(grep -w '^Default run' "$dir_filecfg" | awk -F: '{print $NF}')${NC}"
+
+echo -e "\n${BWhite}Main Menu: What would you like to do?${NC}\n"
+echo -e "${BWhite}Press the number of your choice:${NC}\n"
+echo -e "${BWhite}	1 - Default copy to root folder -${NC} ${Cyan}$drive_name:$root_folder${NC}"
+echo -e "${BWhite}	2 - Create more folders in the root folder -${NC} ${Cyan}$drive_name:$root_folder/FOLDER_HERE/${NC}"
+echo -e "${BWhite}	3 - Copy files by extension .EG:${NC} ${Cyan}srt | mp4 | mp3 | txt | jpeg ...${NC}"
+echo -e "${BWhite}	4 - Reset default config file.${NC}"
+echo -e "${BWhite}	5 - Sync the config file to the current drive .${NC}"
+echo -e "${BWhite}	6 - Update version.${NC}"
+echo -e "${BWhite}	0 - Exit${NC}"
+
+# Wait for user to make a choice and run chosen functions:	
+read -r -n 1 -s choice;
+
+case $choice in 
+		
+		1 )	# Copy File Sang Drive Mac Dinh /syncc/
+clear
+			#echo -e "\n---------------------------" >> "$cptodriveCOMP"
+			copytodriveAUTO "$@"
+		
+		;;
+		
+		2 )  # Tao Thu Muc Dich Den /syncc/FOLDER_HERE/""
+clear
+			#echo -e "\n---------------------------" >> "$cptodriveCOMP"
+			local folder
+			echo -e "${Lightgray}Name of the folder you want to create: ${NC}"
+			echo -e "${Lightgray}Can create multiple paths. EG:${NC} ${Cyan}dir1/dir2/dir3${NC}"
+			read -r folder
+			[[ -n "$folder" ]] 2>/dev/null && root_folder="$root_folder/$folder" && echo -e "${Green}Success creates a new path${NC} ${Yellow}[$drive_name:$root_folder]${NC}"
+			copytodriveAUTO "$@"
+	
+		;;
+		
+		3 )	# Chi Copy File Subtitle .srt
+clear	
+			local file_extension
+			local file_extension_input
+			local folder
+			local extension
+			local arg
+			file_extension=()
+			#echo -e "\n---------------------------" >> "$cptodriveCOMP"
+			echo -e "${Lightgray}Enter the name of the extension file you want to copy to the remote drive ${NC}"
+			echo -e "${Lightgray}Enter only the filename extension, no dot${NC} ${Cyan}' . '${NC}"
+			echo -e "${Lightgray}Enter the file format extension name one by one${NC}"
+			echo -e "${Lightgray}Eg:${NC} ${Cyan}srt | mp4 | mp3 | txt${NC}"
+			while IFS= read -r file_extension_input; do
+				[[ -z "$file_extension_input" ]] && echo -e "${Green}Successfully added file extension${NC}" && break  # break if line is empty
+				file_extension_input="$(echo "$file_extension_input" | sed 's/ //g')"
+				file_extension+=("$file_extension_input")
+				echo -e "${Lightgray}Next extension (end with an empty line): ${NC}"
+				echo -ne "${Lightgray}Added: ${NC}";IFS=',';echo -e "${Cyan}${file_extension[*]// /,}${NC}";IFS=$' \t\n'
+			done
+			echo -e "${Lightgray}Name of the folder you want to create more in${NC} ${Cyan}'$drive_name:$root_folder'${NC}"
+			echo -e "${Lightgray}Can create multiple paths. EG:${NC} ${Cyan}dir1/dir2/dir3${NC}"
+			read -r folder
+			[[ -n "$folder" ]] && root_folder="$root_folder/$folder"
+			echo -e "${Lightgray}Copy all files including copied files (y/n)${NC}"
+			ask_user && local skip_file="yes"
+			if [[ $# -eq 0 ]] ;then
+				echo -ne "\n${BGreen}CHECKED:${NC}  "
+				for extension in "${file_extension[@]}" ;do
+					local total[$extension]="$(find "$PWD"/*."$extension" -maxdepth 0 -type f -printf x 2>/dev/null | wc -c)"
+					TotalFile=$(( TotalFile+${total[$extension]} ))
+					echo -ne "${Lightgray}${total[$extension]}${NC} ${Lightcyan]}$extension${NC} | "
+				done
+				echo -e "${BGreen}TOTAL:${NC} ${Lightgray}$TotalFile${NC}"
+				for extension in "${file_extension[@]}" ;do
+					while IFS= read -r file ;do
+						if [[ -f "$file" ]] ;then
+							filename "$file"
+							if { [[ $(grep -wFc "$filename" "$cptodriveCOMP") -ne 0 ]] && [[ "$skip_file" != "yes" ]];} 2>/dev/null ;then
+								echo "$filename" >> "$cptodriveDONE"
+								num_check_done=$((num_check_done+1))
+							else
+								copytodrive "$file"
+							fi
+						fi
+					done< <(find . -type f -name "*.$extension")
+				done 
+			else
+				for arg in "$@" ;do
+					if [[ -d "$arg" ]] ;then	
+						echo -ne "${BGreen}$arg:${NC}  "
+						local TotalFileSinge=0
+						for extension in "${file_extension[@]}" ;do
+							local total[$extension]="$(find "$(readlink -f "$arg")"/*."$extension" -maxdepth 0 -type f -printf x 2>/dev/null | wc -c)"
+							local TotalFileSinge=$(( TotalFileSinge+${total[$extension]} ))
+							echo -ne "${Lightgray}${total[$extension]}${NC} ${Lightcyan}$extension${NC} | "
+						done
+						TotalFile=$((TotalFile+TotalFileSinge))
+						echo -e "${BGreen}TOTAL:${NC} ${Lightgray}$TotalFileSinge${NC}"
+					else
+						echo -e "${Yellow}[$arg]${NC} ${Red}is not dicrectory${NC}"
+					fi
+				done
+				echo -e "\n${BPurple}CHECKED TOTAL:${NC} ${Lightgray}$TotalFile${NC} ${BPurple}FILE${NC}"
+				for arg in "$@" ;do
+					if [[ -d "$arg" ]];then
+						for extension in "${file_extension[@]}" ;do
+							while IFS= read -r file ;do
+								if [[ -f "$file" ]] ;then
+									filename "$file"
+									if { [[ $(grep -wFc "$filename" "$cptodriveCOMP") -ne 0 ]] && [[ "$skip_file" != "yes" ]];} 2>/dev/null ;then
+										echo "$filename" >> "$cptodriveDONE"
+										num_check_done=$((num_check_done+1))
+									else
+										copytodrive "$file"
+									fi
+								fi
+							done< <(find "$(readlink -f "$arg")" -type f -name "*.$extension")
+						done
+					fi
+				done
+			fi
+			checkfile
+		;;
+
+		4 ) # Reset setting
+			echo -e "\n${Lightgray}Are you sure to reset the config file? or Setting new config (y/n)${NC}"
+			ask_user && sed -i '/^\(\s\|#\)*Default run/ c\Default run : NO' "$dir_filecfg"
+			"$0" "$@"
+		;;
+
+		5 ) # Sync the config file to the current drive
+			echo -e "\n${Lightgray}Default will be saved at${NC} ${Cyan}$drive_name:/config/$(echo "$script_name" | tr -d '.')${NC}"
+			echo -e "${Lightgray}Do you want to sync now? (y/n)${NC}"
+			if ask_user ;then
+				root_folder="/config/$(echo "$script_name" | tr -d '.')"
+				while IFS= read -r file ;do
+					if [[ -f "$file" ]] ;then
+						filename "$file"
+						copytodrive "$file"
+					fi
+				done< <(find "$config_file" -type f -name '*.config') 2>/dev/null
+				checkfile
+
+			else
+				menuRclone "$@"
+			fi
+		;;
+
+		6 ) # Update Script
+			if testvercomp "$new_version" "$version" ">" 2>/dev/null;then
+				if ! curl -o "$(dirname "$(readlink -f "$0")")/$script_name" "https://raw.githubusercontent.com/LHViet245/Script-Auto-Manager/main/scripts/.cptodrive-new" 2>/dev/null ;then
+					ERROR "Upgrade failed. Upgrade download failed!"
+					exit 1
+				else
+					chmod +x "$(dirname "$(readlink -f "$0")")/$script_name"
+					echo -e "${Green}Successful upgrade version${NC} ${Lightgray}'$new_version'${NC}${Green}. You can use it now!${NC}"
+					exit 0
+				fi
+			else
+				echo -e "${Green}You are using the latest version${NC} ${Lightgray}'$new_version'${NC}"
+				menuRclone "$@"
+			fi
+		;;
+
+		0 ) #Exit
+clear
+			echo -e "${Lightblue}Exited${NC}"
+			return 0
+		;;
+		
+		* ) # Not Valid Choice
+clear
+			ERROR "\nNot a valid choice"
+			ERROR "Please choice some number\n"
+			menuRclone "$@"
+		;;
+		
+	esac
+
+}
+
+
+
+
+################ RUNNING SCRIPT #######################
+clear
+version
+# Get color fuction
+if [[ -f "$(which get-function)" ]];then
+	. get-function "color"
+else
+	echo -e "\nGet color function error. Will run without color\n"
+fi
+# Debug clear mode
+if [[ "$1" == "debug-on" ]] ;then
+	sed -i '/^\(\s\|#\)*clear/ c\#clear' "$0"
+	echo -e "${BGreen}DEBUG ON${NC}"
+	exit 0
+elif [[ "$1" == "debug-off" ]] ;then
+	sed -i '/^\(\s\|#\)*clear/ c\clear' "$0"
+	echo -e "${Red}DEBUG OFF${NC}"
+	exit 0
+fi
+# Check config file
+while IFS= read -r filecfg_check ;do
+	if [[ "$(grep -w '^Default run' "$filecfg_check" | awk -F: '{print $NF}' | sed 's/ //g')" == "YES" ]] 2>/dev/null ;then
+		skip_config="yes"
+		dir_filecfg="$filecfg_check"
+		process_config "read_config"
+	else
+		skip_config="no"
+	fi
+done< <(find "$config_file" -type f -name '*.config') 2>/dev/null
+
+[[ "$skip_config" != "yes" ]] && process_config "run_config"
+
+# Run menu
+# clear
+echo -e "\n\t\t\t\t${Orange}+----------------------+${NC}"
+echo -e "\t\t\t\t${Orange}| ${On_Purple}Rclone Copy To Drive${NC} ${Orange}|${NC}"
+echo -e "\t\t\t\t${Orange}+----------------------+${NC}"
+echo -e "\t\t\t\t  ${Lightgray}SCRIPT VERSION:${NC} ${Cyan}$version${NC}\n"
+menuRclone "$@"
+echo -e "\n${Lightgray}DONE ALL${NC}"
+echo -e "${Lightgray}THANK YOU FOR USING!${NC}"
+################### END SCRIPT ######################

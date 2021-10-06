@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+Version_cptodrive="2.0.0"
+
+# Get shared function
+! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
+
+# Get color
+color
+
