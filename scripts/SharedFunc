@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-version_sharedFN="1.8"
+version_sharedFN="1.9"
 
 source_script="$HOME/.auto-manager-server"
 script_dir_sharedfn="$(which SharedFunc)"
@@ -34,6 +34,13 @@ function color() {
     BPurple='\e[1;35m'      # Purple
     BCyan='\e[1;36m'        # Cyan
     BWhite='\e[1;97m'       # White
+}
+
+# Function Basename
+function filebasename() {
+	filename="$(basename "$1")"
+	filepath="$(dirname "$1")"
+	name="${filename%.*}"
 }
 
 # Setup log file
