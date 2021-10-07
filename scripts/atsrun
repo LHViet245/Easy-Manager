@@ -625,7 +625,7 @@ function CreateListFile() {
 			list_video+=("$video")
 		elif [[ -f "$video" ]] && ! CheckVideoDone ;then
 			local tempName
-			tempName="$(basename "$file")"
+			tempName="$(basename "$video")"
 			echo "$tempName" >> "$autosubdone"
 			((num_check_DONE+=1))
 		fi
