@@ -361,10 +361,10 @@ noAsk                   :   ${noAsk}" > "${dir_config}/${config_name}"
 }
 
 function CreateListFile() {
-	local video
-	while IFS= read -r video ;do
-		filebasename "$video" || ERROR "Get file name error" "$script_name"
-		if [[ -f "$video" ]] && CheckVideoDone || { [[ -f "$video" ]] && [[ "$skipFile" == "yes" ]]; } ;then
+	local file
+	while IFS= read -r file ;do
+		filebasename "$file" || ERROR "Get file name error" "$script_name"
+		if [[ -f "$file" ]] && CheckVideoDone || { [[ -f "$file" ]] && [[ "$Ignore_Processed" == "yes" ]]; } ;then
 			list_video+=("$video")
 		elif [[ -f "$video" ]] && ! CheckVideoDone ;then
 			echo "$filename" >> "$cptodriveDONE"
