@@ -624,9 +624,7 @@ function CreateListFile() {
 		if [[ -f "$video" ]] && CheckVideoDone || { [[ -f "$video" ]] && [[ "$Ignore_Processed" == "yes" ]]; } ;then
 			list_video+=("$video")
 		elif [[ -f "$video" ]] && ! CheckVideoDone ;then
-			local tempName
-			tempName="$(basename "$video")"
-			echo "$tempName" >> "$autosubdone"
+			echo "$filename" >> "$autosubdone"
 			((num_check_DONE+=1))
 		fi
 	done < <(find "$1" -maxdepth 1 -type f \( -iname \*.mp4 -o -iname \*.mkv -o -iname \*.avi -o -iname \*.ts -o -iname \*.flv -o -iname \*.m4v -o -iname \*.mov -o -iname \*.wmv \))
@@ -694,13 +692,14 @@ function control_autosub() {
 				if CheckVideoDone || [[ "${Ignore_Processed}" == "yes" ]] ;then
 					list_video+=("$(readlink -f "$file")")
 				else
-					echo "$filename" >> "$cptodriveDONE"
+					echo "$filename" >> "$autosubdone"
 					((num_check_DONE+=1))
 				fi
 			fi
 		done
+		unset video
     fi
-	unset video
+	
 	total_process=$((${#list_video[*]} - num_check_DONE))
 	[[ $total_process -eq 0 ]] && ERROR "Not found video to handle. Check again !" "$script_name"
 	[[ $total_process -lt 0 ]] && show_messenger "All videos have been processed" "$script_name" && total_process=0
@@ -964,8 +963,7 @@ echo -e "${BWhite}	2 - Autosub Chinese (Simplified, China)${NC}"
 echo -e "${BWhite}	3 - Autosub English US${NC}"
 echo -e "${BWhite}	4 - Translate Subtitle (Japanese Default)${NC}"
 echo -e "${BWhite}	5 - Setting or chose other Config${NC}"
-update_version "$Version_atsrun" "$git_dir_atsrun" >/dev/null && local update="yes" && 
-echo -e "${BYellow}	6 - Update new version ${NC}${Green}$new_version${NC}" 
+update_version "$Version_atsrun" "$git_dir_atsrun" >/dev/null && local update="yes" && echo -e "${BYellow}	6 - Update new version ${NC}${Green}$new_version${NC}" 
 echo -e "${BWhite}${NC}"
 echo -e "${BWhite}	0 - Exit${NC}"
 

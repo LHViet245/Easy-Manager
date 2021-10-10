@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-version_sharedFN="1.9"
+version_sharedFN="2.0"
 
 source_script="$HOME/.auto-manager-server"
 script_dir_sharedfn="$(which SharedFunc)"
@@ -106,6 +106,17 @@ function pip_install() {
 		python3.9 -m pip install --user $* || echo "Install $* FAIL" && exit 1
 	fi
 }
+
+function isArray () {
+    local check
+    check=$(declare -p "$1" 2>/dev/null | grep -c '^declare \-a')
+    if [[ $check -ne 0 ]] 2>/dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 
 
 # Fucntion compare version
