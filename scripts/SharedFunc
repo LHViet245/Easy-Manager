@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-version_sharedFN="2.0"
+version_sharedFN="2.1"
 
 source_script="$HOME/.auto-manager-server"
 script_dir_sharedfn="$(which SharedFunc)"
@@ -88,6 +88,11 @@ while true
   done
 }
 
+function pause(){
+ read -r -s -n 1 -p "Press any key to continue . . ."
+ echo ""
+}
+
 # Fucntion check installed package
 function not_installed() {
     if [[ "$(dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -wc "ok installed")" -eq 0 ]]; then
@@ -117,7 +122,13 @@ function isArray () {
     fi
 }
 
-
+function isNumber () {
+    if [[ "$1" =~ ^[0-9]+$ ]] 2>/dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
 
 # Fucntion compare version
 function vercomp() {
