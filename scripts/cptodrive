@@ -827,7 +827,7 @@ function syncConfig() {
 		"Back to Menu"
 	)
 	select sync in "${option[@]}"; do
-		if [[ -z "$drive_nameSync" ]]; then
+		if [[ -z "$drive_nameSync" ]] && [[ "$sync" != "${option[2]}" ]]; then
 			config_drive_name_remote && drive_nameSync=$drive_name
 		fi
 		case $sync in
@@ -912,21 +912,23 @@ function syncConfig() {
 			local num
 			local choice
 			files="$(find "$source_path" -type f -name "*COMP.txt" 2>/dev/null)"
-			num=1
 			if [[ $(echo "$file" | wc -l) -ne 0 ]]; then
 				while true; do
+					num=1
 					echo -e "${Orange}List file:${NC}"
 					while IFS= read -r line; do
 						filess[$num]="$(readlink -f "$line")"
-						echo -e "\t\t ${BWhite}$num.${NC} ${Lightblue}$line${NC}"
+						echo -e "\t\t ${BWhite}$num.${NC} ${Lightblue}$(basename "$line" | awk -F '.' '{print $1}')${NC}"
 						((num++))
 					done < <(echo "$files")
 					echo -e "${Lightgray}Enter number: ${NC}"
 					read -r choice
-					if isNumber "$choice" && [[ $choice -lt $num ]] && [[ $choice -ge $num ]]; then
+					if isNumber "$choice" && [[ $choice -lt $num ]] && [[ $choice -ge 1 ]]; then
 						num=$choice
 						cp "${filess[$num]}" "$cptodriveCOMP" || ERROR "ERROR: Sync old list COMP fail" "$script_name"
+						clear
 						show_messenger "Old list COMP Synced" "$script_name"
+						echo
 						break
 					else
 						echo -e "${Red}Invalid Number. Try again!${NC}"
