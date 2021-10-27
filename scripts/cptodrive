@@ -1059,6 +1059,7 @@ function menuSetting() {
 }
 
 function menuRclone() {
+	clear
 	cptodriveCOMP="$source_path/${drive_name}_COMP.txt"
 	cptodriveDONE="$source_path/${drive_name}_DONE.txt"
 	cptodriveFAIL="$source_path/${drive_name}_FAIL.txt"
