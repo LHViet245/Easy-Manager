@@ -1064,7 +1064,6 @@ function menuRclone() {
 	cptodriveDONE="$source_path/${drive_name}_DONE.txt"
 	cptodriveFAIL="$source_path/${drive_name}_FAIL.txt"
 
-	echo "$flagsCommand"
 	echo -e "${Orange}                                      ${NC}${Lightcyan}Loaded              :${NC} ${BWhite}$loaded_config_name${NC}"
 	echo -e "${Orange}                                      ${NC}${Lightcyan}Drive Name          :${NC} ${BWhite}$drive_name${NC}"
 	echo -e "${Orange}   ****************************       ${NC}${Lightcyan}Root Folder         :${NC} ${BWhite}$root_folder${NC}"
