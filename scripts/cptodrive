@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-Version_cptodrive="2.0.6"
+Version_cptodrive="2.0.8"
 
 # Get shared function
 ! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
@@ -309,6 +309,7 @@ function process_config() {
 		echo "[ DO NOT DELETE THE LEFT COLUMN 
       SPACE MUST NOT CHANGE     ]
 ==============CONFIG==============
+Version                 :   ${Version_cptodrive}
 Drive Name              :   ${drive_name}
 Root Folder 1           :   ${root_folder}
 ==================================
@@ -583,24 +584,53 @@ function copytodriveAUTO() {
 
 	clear
 
-	# create list file to handle
-	if [[ $# -eq 0 ]]; then
-		CreateListFile "$PWD"
-	else
-		local file
-		for file in "$@"; do
-			filebasename "$file"
-			if fileNotDone || [[ "${Ignore_Processed}" == "yes" ]]; then
-				if [[ -f "${file}" ]]; then
-					listFile+=("$(readlink -f "${file}")")
+	if [[ $listDown != "yes" ]]; then
+		# create list file to handle
+		if [[ $# -eq 0 ]]; then
+			CreateListFile "$PWD"
+		else
+			local file
+			for file in "$@"; do
+				filebasename "$file"
+				if fileNotDone || [[ "${Ignore_Processed}" == "yes" ]]; then
+					if [[ -f "${file}" ]]; then
+						listFile+=("$(readlink -f "${file}")")
+					else
+						listFolder+=("$(readlink -f "${file}")")
+					fi
 				else
-					listFolder+=("$(readlink -f "${file}")")
+					echo "$filename" >>"$cptodriveDONE"
+					((num_check_DONE += 1))
+				fi
+			done
+		fi
+	else
+		totalFiles=$(ls -1 | wc -l)
+		isLineCurrentDown=$(ls -1 | grep -nFw "$1" | cut -d : -f 1)
+		showNum=$((isLineCurrentDown - totalFiles))
+		listFilesDown=$(ls -1 | tail -n $((showNum + 1)))
+		echo -e "${Orange}List file will be handle: ${NC}\n"
+		echo "$listFilesDown"
+		echo -e "\n${Lightgray}Start copying? (y/n)${NC}"
+		! ask_user && exit
+		local line
+		while IFS= read -r line; do
+			line="$(readlink -f "$line")"
+			filebasename "$line"
+			if fileNotDone || [[ "${Ignore_Processed}" == "yes" ]]; then
+				if [[ -f "$line" ]]; then
+					listFile+=("$line")
+				elif [[ -d "$line" ]]; then
+					listFolder+=("$line")
 				fi
 			else
 				echo "$filename" >>"$cptodriveDONE"
 				((num_check_DONE += 1))
 			fi
-		done
+		done <"$listFilesDown"
+		unset totalFiles
+		unset isLineCurrentDown
+		unset listFilesDown
 	fi
 
 	allProcess=("${listFile[@]}" "${listFolder[@]}")
@@ -1158,8 +1188,34 @@ function menuRclone() {
 
 ###############################################################################################
 ######################################## RUNNING SCRIPT #######################################
-
+clear
 which rclone >/dev/null || ERROR "Rclone is not installed. Please make sure it's already installed." "$script_name"
+
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+	case $1 in
+	-V | --version)
+		clear
+		echo -e "${Orange}Script by Starfall${NC}"
+		echo -e "${Lightgray}Copy to drive Version:${NC} ${Cyan}$Version_cptodrive${NC}"
+		echo -e "${Lightgray}Shared function Version:${NC} ${Cyan}$version_sharedFN${NC}"
+		exit
+		;;
+	-d | --down)
+		shift
+		[[ $# -gt 1 ]] && echo -e "${Red}Invalid arguments.${NC}" && exit
+		listDown="yes"
+		;;
+	-f | --flag)
+		flag=1
+		;;
+	*)
+		echo -e "${Red}Invalid arguments.${NC}"
+		exit
+		;;
+	esac
+	shift
+done
+if [[ "$1" == '--' ]]; then shift; fi
 
 getListRemotes
 
