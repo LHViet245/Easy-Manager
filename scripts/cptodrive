@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-Version_cptodrive="2.0.5"
+Version_cptodrive="2.0.6"
 
 # Get shared function
 ! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
@@ -27,14 +27,14 @@ function getOptionRclone() {
 		typeRemote="default"
 	fi
 
-	RCLONE_CHUNK_SIZE="256M"
+	RCLONE_CHUNK_SIZE="128M"
 	RCLONE_TRANSFERS="10"
-	RCLONE_CHECKERS="20"
-	RCLONE_BWLIMIT="100M"
+	RCLONE_CHECKERS="15"
+	RCLONE_BWLIMIT="95M"
 
 	case "$typeRemote" in
 	drive)
-		flagsCommand="--fast-list --create-empty-src-dirs --ignore-existing --drive-stop-on-upload-limit --max-transfer 700G --transfers=$RCLONE_TRANSFERS --checkers=20 --drive-chunk-size=$RCLONE_CHUNK_SIZE --bwlimit=$RCLONE_BWLIMIT --stats 1s --retries 3 --low-level-retries 10"
+		flagsCommand="--fast-list --create-empty-src-dirs --ignore-existing --drive-stop-on-upload-limit --max-transfer 700G --transfers=$RCLONE_TRANSFERS --checkers=20 --drive-chunk-size=$RCLONE_CHUNK_SIZE --bwlimit=$RCLONE_BWLIMIT"
 		;;
 	onedrive)
 		flagsCommand="--fast-list --create-empty-src-dirs --ignore-existing --transfers=$RCLONE_TRANSFERS --checkers=$RCLONE_CHECKERS --onedrive-chunk-size=$RCLONE_CHUNK_SIZE --bwlimit=$RCLONE_BWLIMIT"
@@ -214,15 +214,14 @@ function Setting {
 		"yes"
 		"no"
 	)
-	echo -e "\n${Yellow}Setting Default option - If it is 'no' then it will be asked for each run${NC}\n"
 	case "$1" in
 	dfRun)
-		echo -e "${Lightgray}Default Run: ${NC}"
+		echo -e "${Lightgray}Set this config as default for every run.${NC}"
 		select Default_Run in "${option[@]}"; do show_messenger "Set Default Run: $Default_Run" "$script_name" && break; done
 		;;
 
 	ignore)
-		echo -e "\n${Lightgray}Ignore Processed Video: ${NC}"
+		echo -e "\n${Lightgray}Does not check if the file has been processed or not.${NC}"
 		select Ignore_Processed in "${option[@]}"; do show_messenger "Set Ignore Processed Video: $Ignore_Processed" "$script_name" && break; done
 		;;
 
@@ -236,16 +235,28 @@ function Setting {
 		done
 		;;
 
+	dynamicSetDate)
+		echo -e "\n${Lightgray}Automatically create a folder named by date at the end of the root folder path.${NC}"
+		echo -e "${Lightgray}EG.${NC} ${Cyan}${drive_name}:${root_folder}${NC}/${Lightgray}YOUR CUSTOM FOLDER${NC}/${Green}$(date '+%d-%m-%Y')${NC}/${Lightyellow}your file copied${NC}"
+		select dynamicDate in "${option[@]}"; do show_messenger "Set folder named by date: $Ignore_Processed" "$script_name" && break; done
+		;;
+
 	noask)
-		echo -e "\n${Lightgray}Forced not to ask for options again after each run.${NC}"
+		echo -e "\n${Lightgray}Do not ask the option again every time you run.${NC}"
+		echo -e "\n${Lightgray}This opption will force run with config file not asking option${NC}"
 		select noAsk in "${option[@]}"; do show_messenger "Set Multi Drive: $noAsk" "$script_name" && break; done
 		;;
 
 	*)
 		Setting "dfRun"
+		echo ""
 		Setting "ignore"
+		echo ""
 		Setting "multiDrive"
+		echo ""
 		Setting "noask"
+		echo
+		Setting "dynamicSetDate"
 		;;
 	esac
 	unset option
@@ -305,6 +316,7 @@ Root Folder 1           :   ${root_folder}
 Default Run             :   ${Default_Run}
 Ignore Processed file   :   ${Ignore_Processed}
 Multi Dirve             :   ${Multi_Drive}
+Dynamic Date            :   ${dynamicDate}
 noAsk                   :   ${noAsk}" >"${dir_config}/${config_name}"
 
 		if [[ "${Multi_Drive}" == "yes" ]] && [[ ${#listRemotesSelected[@]} -le 2 ]] 2>/dev/null; then
@@ -335,6 +347,7 @@ noAsk                   :   ${noAsk}" >"${dir_config}/${config_name}"
 		Default_Run="$(grep -w '^Default Run' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
 		Ignore_Processed="$(grep -w '^Ignore Processed file' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
 		Multi_Drive="$(grep -w '^Multi Dirve' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
+		dynamicDate="$(grep -w '^Dynamic Date' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
 		noAsk="$(grep -w '^noAsk' "$loaded_config" | awk '{print $NF}' | sed 's/ //g')"
 
 		if [[ "$Multi_Drive" == "yes" ]]; then
@@ -513,7 +526,7 @@ function copytodrive() {
 		subfolder=
 	fi
 
-	echo -ne "\n${Lightgreen}Start copying file${NC} ${Yellow}[$filename]${NC} ${Lightgreen}to Remote${NC} ${Yellow}[$drive_name:$root_folder]${NC} - "
+	echo -ne "\n${Lightgreen}Copying${NC} ${Yellow}[$filename]${NC} ${Lightgreen}to${NC} ${Yellow}[$drive_name:$root_folder]${NC} - "
 	showProcess
 
 	if ! rclone copy --progress "$1" "$drive_name:$root_folder/$subfolder" \
@@ -562,14 +575,10 @@ function copytodriveAUTO() {
 	listFile=()
 	listFolder=()
 	allProcess=()
-	cptodriveCOMP="$source_path/${drive_name}_COMP.txt"
-	cptodriveDONE="$source_path/${drive_name}_DONE.txt"
-	cptodriveFAIL="$source_path/${drive_name}_FAIL.txt"
 
 	if [[ "${noAsk}" != "yes" ]]; then
-		questionOption "All"
-	else
-		questionOption "createDate"
+		[[ "$Ignore_Processed" != "yes" ]] && questionOption "ignore"
+		[[ "$dynamicDate" != "yes" ]] && questionOption "createDate" || root_folder="$root_folder/$(date '+%d-%m-%Y')"
 	fi
 
 	clear
@@ -596,7 +605,7 @@ function copytodriveAUTO() {
 
 	allProcess=("${listFile[@]}" "${listFolder[@]}")
 
-	echo -ne "\n${BGreen}CHECKED:${NC}  "
+	echo -ne "\n${BGreen}$drive_name:${NC}  "
 	[[ ${#listFile[@]} -ne 0 ]] && echo -ne "${Lightgray}${#listFile[@]}${NC} ${Purple}File${NC} | "
 	[[ ${#listFolder[@]} -ne 0 ]] && echo -ne "${Lightgray}${#listFolder[@]}${NC} ${Purple}Folder${NC} | "
 	[[ ${num_check_DONE} -ne 0 ]] && echo -ne "${Lightgray}${num_check_DONE}${NC} ${Yellow}Done${NC} | "
@@ -703,7 +712,7 @@ function checkfile() {
 			if [[ "$list" == "---------------------------" ]]; then
 				if [[ $first == "no" ]]; then
 					echo -n "$list"
-					echo -e "  ${Purple}Total${NC} ${BPurple}$num_check_COMP${NC} ${Purple}file${NC} | ${Orange}$(date '+%d-%m-%Y')${NC} | ${Lightgray}$(date '+%H:%M')${NC}"
+					echo -e "  ${Lightcyan}$drive_name${NC}: ${Purple}Total${NC} ${BPurple}$num_check_COMP${NC} ${Purple}file${NC} | ${Orange}$(date '+%d-%m-%Y')${NC} | ${Lightgray}$(date '+%H:%M')${NC}"
 					first="stop" # Stop
 				fi
 			else
