@@ -606,12 +606,11 @@ function copytodriveAUTO() {
 		fi
 	else
 		totalFiles=$(ls -1 | wc -l)
-		isLineCurrentDown=$(ls -1 | grep -nFw "$1" | cut -d : -f 1)
-		showNum=$((isLineCurrentDown - totalFiles))
+		showNum=$((totalFiles - isLineCurrentDown))
 		listFilesDown=$(ls -1 | tail -n $((showNum + 1)))
 		echo -e "${Orange}List file will be handle: ${NC}\n"
 		echo "$listFilesDown"
-		echo -e "\n${Lightgray}Start copying? (y/n)${NC}"
+		echo -e "\n${Green}Start copying? (y/n)${NC}"
 		! ask_user && exit
 		local line
 		while IFS= read -r line; do
@@ -1203,10 +1202,8 @@ while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
 	-d | --down)
 		shift
 		[[ $# -gt 1 ]] && echo -e "${Red}Invalid arguments.${NC}" && exit
+		isLineCurrentDown=$(ls -1 | grep -nFw "$1" | cut -d : -f 1)
 		listDown="yes"
-		;;
-	-f | --flag)
-		flag=1
 		;;
 	*)
 		echo -e "${Red}Invalid arguments.${NC}"
