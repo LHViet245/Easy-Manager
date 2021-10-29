@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-Version_cptodrive="2.1.0"
+Version_cptodrive="2.1.1"
 
 # Get shared function
 ! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
@@ -577,9 +577,8 @@ function copytodriveAUTO() {
 	listFolder=()
 	allProcess=()
 
-	if [[ "${noAsk}" == "yes" ]]; then
-		[[ "$Ignore_Processed" != "yes" ]] && questionOption "ignore"
-		[[ "$dynamicDate" != "yes" ]] && questionOption "createDate" || root_folder="${root_folder}/$(date '+%d-%m-%Y')"
+	if [[ "$noAsk" == "yes" ]]; then
+		[[ "$dynamicDate" == "yes" ]] && root_folder="${root_folder}/$(date '+%d-%m-%Y')"
 	else
 		questionOption "ignore"
 		questionOption "createDate"
