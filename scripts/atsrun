@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-Version_atsrun="2.2.3"
+Version_atsrun="2.2.5"
 
 # Get shared function
 ! source "SharedFunc" 2>/dev/null && echo "SharedFunc: No such file or directory" && exit 1
@@ -618,7 +618,7 @@ function CheckVideoDone() {
 function CreateListFile() {
 	local video
 	while IFS= read -r video; do
-		AutoRenameVideo "$video"
+		[[ "$rename" == "yes" ]] && AutoRenameVideo "$video"
 		filebasename "$video"
 		if [[ -f "$video" ]] && CheckVideoDone || { [[ -f "$video" ]] && [[ "$Ignore_Processed" == "yes" ]]; }; then
 			list_video+=("$video")
@@ -655,6 +655,9 @@ function AutoRenameVideo() {
 	if [[ "$baseName" =~ ^hhd800.com@ ]] 2>/dev/null; then
 		mv "$1" "${baseDir}/${baseName##*@}"
 		video="${baseDir}/${baseName##*@}"
+	elif [[ "$baseName" =~ ^hdd600.com@ ]] 2>/dev/null; then
+		mv "$1" "${baseDir}/${baseName##*@}"
+		video="${baseDir}/${baseName##*@}"
 	else
 		return 1
 	fi
@@ -678,25 +681,63 @@ function control_autosub() {
 			ask_user && Auto_Translate='yes' && show_messenger "Auto Translate Subtitle" "$script_name"
 		fi
 	fi
-	if [[ $# -eq 0 ]]; then
-		CreateListFile "$PWD"
-	else
-		local file
-		for file in "$@"; do
-			if [[ -d "$file" ]]; then
-				CreateListFile "$(readlink -f "$file")"
-			else
-				AutoRenameVideo "$(readlink -f "$file")" && file="$video"
-				filebasename "$file"
-				if CheckVideoDone || [[ "${Ignore_Processed}" == "yes" ]]; then
-					list_video+=("$(readlink -f "$file")")
+
+	if [[ "$listDown" != "yes" ]]; then
+
+		if [[ $# -eq 0 ]]; then
+			CreateListFile "$PWD"
+		else
+			local file
+			for file in "$@"; do
+				if [[ -d "$file" ]]; then
+					CreateListFile "$(readlink -f "$file")"
 				else
-					echo "$filename" >>"$autosubdone"
-					((num_check_DONE += 1))
+					[[ "$rename" == "yes" ]] && AutoRenameVideo "$(readlink -f "$file")" && file="$video"
+					filebasename "$file"
+					if CheckVideoDone || [[ "${Ignore_Processed}" == "yes" ]]; then
+						list_video+=("$(readlink -f "$file")")
+					else
+						echo "$filename" >>"$autosubdone"
+						((num_check_DONE += 1))
+					fi
 				fi
+			done
+			unset video
+		fi
+	else
+		totalFiles=$(ls -1 | wc -l)
+		showNum=$((totalFiles - isLineCurrentDown))
+		listFilesDown=$(ls -1 | tail -n $((showNum + 1)))
+		echo -e "${Orange}List file will be handle: ${NC}\n"
+		echo "$listFilesDown"
+		echo -e "\n${Green}Start autosub? (y/n)${NC}"
+		! ask_user && exit
+		local line
+		while IFS= read -r line; do
+			line="$(readlink -f "$line")"
+			filebasename "$line"
+			if CheckVideoDone || [[ "${Ignore_Processed}" == "yes" ]]; then
+				if [[ -d "$line" ]]; then
+					CreateListFile "$line"
+				else
+					[[ "$rename" == "yes" ]] && AutoRenameVideo "$line" && line="$video"
+					filebasename "$line"
+					if CheckVideoDone || [[ "${Ignore_Processed}" == "yes" ]]; then
+						list_video+=("$line")
+					else
+						echo "$filename" >>"$autosubdone"
+						((num_check_DONE += 1))
+					fi
+				fi
+			else
+				echo "$filename" >>"$cptodriveDONE"
+				((num_check_DONE += 1))
 			fi
-		done
-		unset video
+			unset video
+		done <"$listFilesDown"
+		unset totalFiles
+		unset isLineCurrentDown
+		unset listFilesDown
 	fi
 
 	total_process=${#list_video[*]}
@@ -767,6 +808,7 @@ function control_translate() {
 			fi
 		done
 	fi
+
 	total_process=${#list_subtitle[*]}
 	[[ $total_process -eq 0 ]] && ERROR "Not found subtitle to handle. Check again !" "$script_name"
 	echo -ne "\n${Green}TOTAL:${NC} ${Lightgray}$total_process${NC} ${Purple}Subtitle${NC}"
@@ -1033,6 +1075,33 @@ function menu_autosub() {
 # 	ERROR "Cannot get source language! File not found"
 # fi
 which autosub >/dev/null || ERROR "Autosub is not installed. Please make sure it's already installed." "$script_name"
+
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+	case $1 in
+	-V | --version)
+		clear
+		echo -e "${Orange}Script by Starfall${NC}"
+		echo -e "${Lightgray}Autosub script Version:${NC} ${Cyan}$Version_atsrun${NC}"
+		echo -e "${Lightgray}Shared function Version:${NC} ${Cyan}$version_sharedFN${NC}"
+		exit
+		;;
+	-d | --down)
+		shift
+		[[ $# -gt 1 ]] && echo -e "${Red}Invalid arguments.${NC}" && exit
+		isLineCurrentDown=$(ls -1 | grep -nFwx "$1" | cut -d : -f 1)
+		listDown="yes"
+		;;
+	-r | --rename)
+		rename="yes"
+		;;
+	*)
+		echo -e "${Red}Invalid arguments.${NC}"
+		exit
+		;;
+	esac
+	shift
+done
+if [[ "$1" == '--' ]]; then shift; fi
 
 if [[ "$(find "$dir_config" -maxdepth 1 -type f -name '*.config' | wc -c)" -eq 0 ]]; then
 	process_config "create_config"
